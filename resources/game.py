@@ -9,7 +9,7 @@ class cell:
         self.mass = starting_mass
         self.display_surface = display
 
-        self.speed = 10 # for testing - will be a function later
+        self.speed = 1 # for testing - will be a function later
 
 
     def display(self):
@@ -30,26 +30,34 @@ class player_cell(cell):
     def update_direction(self):
         # current issue is speed decreases with distance from mouse 
         self.mouse_pos = pygame.mouse.get_pos()
+
+
         rel_x = self.mouse_pos[0] - self.pos[0]
         rel_y = self.mouse_pos[1] - self.pos[1]
-
 
         angle = math.atan2(rel_y, rel_x)
 
         self.d_x = self.speed * math.cos(angle)
         self.d_y = self.speed * math.sin(angle)
 
-        print(math.sqrt(rel_x ** 2 + rel_y ** 2))
+
+        # print(math.sqrt(rel_x ** 2 + rel_y ** 2))
 
 
     def move(self):
         self.update_direction()
-        self.pos = (self.pos[0] + self.d_x, self.pos[1] + self.d_y)
 
-        if abs(self.pos[0] - self.mouse_pos[0]) < abs(self.d_x):
+
+        self.pos = [self.pos[0] + self.d_x, self.pos[1] + self.d_y]
+
+
+
+        # Prevent wiggling about the cursor caused my over movement
+        if abs(self.pos[0] - self.mouse_pos[0]) <= abs(self.d_x):
             self.pos[0] = self.mouse_pos[0]
 
-        if abs(self.pos[1] - self.mouse_pos[1]) < abs(self.d_y):
+
+        if abs(self.pos[1] - self.mouse_pos[1]) <= abs(self.d_y):
             self.pos[1] = self.mouse_pos[1]
 
         
