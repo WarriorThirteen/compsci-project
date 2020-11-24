@@ -9,7 +9,7 @@ class cell:
         self.mass = starting_mass
         self.display_surface = display
 
-        self.speed = 1 # for testing - will be a function later
+        self.speed = 10 # for testing - will be a function later
 
 
     def display(self):
@@ -72,7 +72,7 @@ pygame.init()
 
 SCREEN_WIDTH = 1280
 SCREEN_HEIGHT = 720
-UPS = 30    # updates per second
+UPS = 60    # updates per second
 SCREEN_GEOMETRY = (SCREEN_WIDTH, SCREEN_HEIGHT)
 
 
@@ -117,8 +117,6 @@ while alive:
 
 
 
-
-
     # Move things
     player.move()
 
@@ -127,4 +125,4 @@ while alive:
 
     # Update screen
     pygame.display.update()
-    clock.tick()
+    clock.tick(UPS)
