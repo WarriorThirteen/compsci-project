@@ -27,23 +27,51 @@ class player_cell(cell):
         self.d_x = 0
         self.d_y = 0
         self.display_geometry = display_xy
+
+        self.move = self.key_move  # Set move function depending on mouse or keyboard
+        
         # self.mouse_pos = self.pos
         self.camera_pos = [self.pos[0] + (display_xy[0] // 2), self.pos[1] + (display_xy[1] // 2)]
 
 
-    def update_direction(self):
+    def set_mouse_mode(self):
+        self.move = self.mouse_move
 
-        # self.mouse_pos = pygame.mouse.get_pos()
+
+    def mouse_move(self):
+        '''
+        Control Movement Based on Mouse
+        '''
+
+        self.mouse_pos = pygame.mouse.get_pos()
+
+        rel_x = self.mouse_pos[0] - (self.display_geometry[0] // 2)
+        rel_y = self.mouse_pos[1] - (self.display_geometry[1] // 2)
+
+        angle = math.atan2(rel_y, rel_x)
+
+        self.d_x = self.speed * math.cos(angle)
+        self.d_y = self.speed * math.sin(angle)
 
 
-        # rel_x = self.mouse_pos[0] - self.pos[0]
-        # rel_y = self.mouse_pos[1] - self.pos[1]
+        ##  For Mouse control
+        self.pos = [self.pos[0] + self.d_x, self.pos[1] + self.d_y]
+        self.camera_pos = [ - self.pos[0] + self.display_geometry[0] // 2, - self.pos[1] + self.display_geometry[1] // 2]
+        # self.camera_pos = [self.camera_pos[0] - self.d_x, self.camera_pos[1] - self.d_y]
 
-        # angle = math.atan2(rel_y, rel_x)
+        # Prevent wiggling about the cursor caused my over movement
+        if abs(self.pos[0] - self.mouse_pos[0]) <= abs(self.d_x):
+            self.pos[0] = self.mouse_pos[0]
 
-        # self.d_x = self.speed * math.cos(angle)
-        # self.d_y = self.speed * math.sin(angle)
+        if abs(self.pos[1] - self.mouse_pos[1]) <= abs(self.d_y):
+            self.pos[1] = self.mouse_pos[1]
 
+
+        self.wall_detect()
+
+
+
+    def key_move(self):
 
         ##  Move with keyboard
         pressed_keys = pygame.key.get_pressed()
@@ -51,10 +79,6 @@ class player_cell(cell):
         if pressed_keys[pygame.K_w]:
             self.camera_pos[1] += self.speed
             self.pos[1] -= self.speed
-            print("me - ", self.pos)
-
-            print("cam - ", self.camera_pos)
-
 
         if pressed_keys[pygame.K_a]:
             self.camera_pos[0] += self.speed
@@ -68,25 +92,10 @@ class player_cell(cell):
             self.camera_pos[0] -= self.speed
             self.pos[0] += self.speed
 
+        self.wall_detect()
 
 
-
-    def move(self):
-        self.update_direction()
-
-        # For Mouse control
-        # self.pos = [self.pos[0] + self.d_x, self.pos[1] + self.d_y]
-        # self.camera_pos = [self.camera_pos[0] - self.d_x, self.camera_pos[1] - self.d_y]
-
-        # # Prevent wiggling about the cursor caused my over movement
-        # if abs(self.pos[0] - self.mouse_pos[0]) <= abs(self.d_x):
-        #     self.pos[0] = self.mouse_pos[0]
-
-        # if abs(self.pos[1] - self.mouse_pos[1]) <= abs(self.d_y):
-        #     self.pos[1] = self.mouse_pos[1]
-
-
-
+    def wall_detect(self):
         # detect edge collision
         if (displacement := -self.pos[0]) > 0:
             self.pos[0] += displacement
@@ -131,7 +140,8 @@ WORLD_HEIGHT = 1000
 WORLD_GEOMETRY = (WORLD_WIDTH, WORLD_HEIGHT)
 
 
-
+##  Mouse Mode toggle will be in menu or something later
+mouse_mode = True
 
 
 
@@ -159,8 +169,10 @@ player_centre = (0, 0) #(- WORLD_WIDTH // 2, - WORLD_HEIGHT // 2)
 
 player = player_cell(DISPLAY_GEOMETRY, game_map, WORLD_GEOMETRY, player_centre, player_colour)
 
-# player.translate((1000, 100))
+if mouse_mode:
+    player.set_mouse_mode()
 
+# player.translate((1000, 100))
 
 alive = True
 
@@ -173,8 +185,6 @@ while alive:
         if event.type == pygame.QUIT:
             alive = False
 
-        # elif event.type == pygame.MOUSEMOTION:
-        #     player.update_direction()
 
         print(event)
 
