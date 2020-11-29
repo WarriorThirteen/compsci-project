@@ -54,6 +54,9 @@ def init(game_run_function,
     max_spawn_rate = dot_spawn_rate # max spawn rate of dots
     max_ai_count = ai_limit
 
+    global JOIN_CODE_LENGTH     # required length of multiplayer game join code
+    JOIN_CODE_LENGTH = 6
+
 
 
     global sound_on
@@ -461,7 +464,12 @@ def get_join_code():
     Return code entered by user to join multiplayer game
     '''
     global join_code
-    return join_code.get()
+    global JOIN_CODE_LENGTH
+    code = join_code.get()
+    if len(code) != JOIN_CODE_LENGTH:
+        alert("This code is the wrong length!")
+    else:
+        return code
 
 
 

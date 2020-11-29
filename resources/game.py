@@ -34,8 +34,11 @@ class player_cell(cell):
         self.camera_pos = [self.pos[0] + (display_xy[0] // 2), self.pos[1] + (display_xy[1] // 2)]
 
 
-    def set_mouse_mode(self):
-        self.move = self.mouse_move
+    def set_mouse_mode(self, activate=True):
+        if activate:
+            self.move = self.mouse_move
+        else:
+            self.move = self.key_move
 
 
     def mouse_move(self):
@@ -77,26 +80,28 @@ class player_cell(cell):
         pressed_keys = pygame.key.get_pressed()
 
         if pressed_keys[pygame.K_w]:
-            self.camera_pos[1] += self.speed
+            # self.camera_pos[1] += self.speed
             self.pos[1] -= self.speed
 
         if pressed_keys[pygame.K_a]:
-            self.camera_pos[0] += self.speed
+            # self.camera_pos[0] += self.speed
             self.pos[0] -= self.speed
 
         if pressed_keys[pygame.K_s]:
-            self.camera_pos[1] -= self.speed
+            # self.camera_pos[1] -= self.speed
             self.pos[1] += self.speed
 
         if pressed_keys[pygame.K_d]:
-            self.camera_pos[0] -= self.speed
+            # self.camera_pos[0] -= self.speed
             self.pos[0] += self.speed
+
+        self.camera_pos = [ - self.pos[0] + self.display_geometry[0] // 2, - self.pos[1] + self.display_geometry[1] // 2]
 
         self.wall_detect()
 
 
     def wall_detect(self):
-        # detect edge collision
+        # Validate edge collision
         if (displacement := -self.pos[0]) > 0:
             self.pos[0] += displacement
             self.camera_pos[0] -= displacement
@@ -126,78 +131,82 @@ class player_cell(cell):
         self.camera_pos[1] -= new_pos[1]
 
 
+def Main():
 
-##  Key Variables
-pygame.init()
+    ##  Key Variables
+    pygame.init()
 
-DISPLAY_WIDTH = 1280
-DISPLAY_HEIGHT = 720
-DISPLAY_GEOMETRY = (DISPLAY_WIDTH, DISPLAY_HEIGHT)
-UPS = 60    # updates per second
+    DISPLAY_WIDTH = 1280
+    DISPLAY_HEIGHT = 720
+    DISPLAY_GEOMETRY = (DISPLAY_WIDTH, DISPLAY_HEIGHT)
+    UPS = 60    # updates per second
 
-WORLD_WIDTH = 1000
-WORLD_HEIGHT = 1000
-WORLD_GEOMETRY = (WORLD_WIDTH, WORLD_HEIGHT)
-
-
-##  Mouse Mode toggle will be in menu or something later
-mouse_mode = True
+    WORLD_WIDTH = 1000
+    WORLD_HEIGHT = 1000
+    WORLD_GEOMETRY = (WORLD_WIDTH, WORLD_HEIGHT)
 
 
-
-##  configure display and pygame settings
-game_display = pygame.display.set_mode(DISPLAY_GEOMETRY)
-game_display.fill((250, 250, 250))
-
-pygame.display.set_caption("Jario")
+    ##  Mouse Mode toggle will be in menu or something later
+    mouse_mode = True
 
 
-clock = pygame.time.Clock()
 
-
-##  Creating things!
-
-
-# Create world
-
-game_map = pygame.Surface(WORLD_GEOMETRY)
-
-
-# Create PLayer
-player_colour = (155, 0, 0)
-player_centre = (0, 0) #(- WORLD_WIDTH // 2, - WORLD_HEIGHT // 2)
-
-player = player_cell(DISPLAY_GEOMETRY, game_map, WORLD_GEOMETRY, player_centre, player_colour)
-
-if mouse_mode:
-    player.set_mouse_mode()
-
-# player.translate((1000, 100))
-
-alive = True
-
-while alive:
-    # remove previous instances of everything
+    ##  configure display and pygame settings
+    game_display = pygame.display.set_mode(DISPLAY_GEOMETRY)
     game_display.fill((250, 250, 250))
-    game_map.fill((0, 0, 0))
 
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            alive = False
+    pygame.display.set_caption("Jario")
 
 
-        print(event)
+    clock = pygame.time.Clock()
+
+
+    ##  Creating things!
+
+
+    # Create world
+
+    game_map = pygame.Surface(WORLD_GEOMETRY)
+
+
+    # Create PLayer
+    player_colour = (155, 0, 0)
+    player_centre = (0, 0) #(- WORLD_WIDTH // 2, - WORLD_HEIGHT // 2)
+
+    player = player_cell(DISPLAY_GEOMETRY, game_map, WORLD_GEOMETRY, player_centre, player_colour)
+
+    if mouse_mode:
+        player.set_mouse_mode()
+
+    # player.translate((1000, 100))
+
+    alive = True
+
+    while alive:
+        # remove previous instances of everything
+        game_display.fill((250, 250, 250))
+        game_map.fill((0, 0, 0))
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                alive = False
+
+
+            print(event)
 
 
 
-    # Move things
-    player.move()
+        # Move things
+        player.move()
 
-    # display things
-    player.display()
+        # display things
+        player.display()
 
-    # Update screen
-    game_display.blit(game_map, player.camera_pos) # transfer game view to display
-    pygame.display.update()
+        # Update screen
+        game_display.blit(game_map, player.camera_pos) # transfer game view to display
+        pygame.display.update()
 
-    clock.tick(UPS)
+        clock.tick(UPS)
+
+if __name__ == "__main__":
+    Main()
