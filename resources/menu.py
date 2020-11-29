@@ -139,6 +139,9 @@ def not_implemented():
 
 
 def alert(text):
+    '''
+    Create a small tktoplevel window to present an alert
+    '''
     alert_window = tk.Toplevel(root)
     alert_window.minsize(200, 200)
 
