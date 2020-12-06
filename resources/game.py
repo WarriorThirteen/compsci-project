@@ -59,16 +59,16 @@ class player_cell(cell):
 
         ##  For Mouse control
         self.pos = [self.pos[0] + self.d_x, self.pos[1] + self.d_y]
-        self.camera_pos = [ - self.pos[0] + self.display_geometry[0] // 2, - self.pos[1] + self.display_geometry[1] // 2]
-        # self.camera_pos = [self.camera_pos[0] - self.d_x, self.camera_pos[1] - self.d_y]
 
-        # Prevent wiggling about the cursor caused my over movement
+
+        # Prevent wiggling about the cursor caused by over movement
         if abs(self.pos[0] - self.mouse_pos[0]) <= abs(self.d_x):
             self.pos[0] = self.mouse_pos[0]
 
         if abs(self.pos[1] - self.mouse_pos[1]) <= abs(self.d_y):
             self.pos[1] = self.mouse_pos[1]
 
+        self.camera_pos = [ - self.pos[0] + self.display_geometry[0] // 2, - self.pos[1] + self.display_geometry[1] // 2]
 
         self.wall_detect()
 
@@ -102,21 +102,21 @@ class player_cell(cell):
 
     def wall_detect(self):
         # Validate edge collision
-        if (displacement := -self.pos[0]) > 0:
-            self.pos[0] += displacement
-            self.camera_pos[0] -= displacement
+        if self.pos[0] < 0: # Left
+            self.pos[0] = 0
+            self.camera_pos[0] = self.display_geometry[0] // 2
 
-        if (displacement := -self.pos[1]) > 0:
-            self.pos[1] += displacement
-            self.camera_pos[1] -= displacement
+        if self.pos[1] < 0: # Top
+            self.pos[1] = 0
+            self.camera_pos[1] = self.display_geometry[1] // 2
 
-        if (displacement := self.world_geometry[0] - self.pos[0] ) < 0 :
-            self.pos[0] += displacement
-            self.camera_pos[0] -= displacement
+        if self.pos[0] > self.world_geometry[0] : # Right
+            self.pos[0] = self.world_geometry[0]
+            self.camera_pos[0] = - self.world_geometry[0] + self.display_geometry[0] // 2
 
-        if (displacement := self.world_geometry[1] - self.pos[1] ) < 0 :
-            self.pos[1] += displacement
-            self.camera_pos[1] -= displacement
+        if self.pos[1] > self.world_geometry[1] : # Bottom
+            self.pos[1] = self.world_geometry[1]
+            self.camera_pos[1] = - self.world_geometry[1] + self.display_geometry[1] // 2
 
 
 
@@ -193,7 +193,6 @@ def Main():
 
 
             print(event)
-
 
 
         # Move things

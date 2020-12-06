@@ -187,11 +187,11 @@ def open_home_menu():
         ##  auxiliary buttons
 
         global btn_sound_toggle
-        btn_sound_toggle = tk.Button(home_menu_frame, command=toggle_sound, image=unmuted_icon)
+        btn_sound_toggle = tk.Button(home_menu_frame, command=toggle_sound, image=unmuted_icon, border=0)
         btn_sound_toggle.place(relx=0.05, rely=0.1)
 
         global btn_close_program
-        btn_close_program = tk.Button(home_menu_frame, command=close_program, image=cross_icon)
+        btn_close_program = tk.Button(home_menu_frame, command=close_program, image=cross_icon, border=0)
         btn_close_program.place(relx=0.95, rely=0.1, anchor="ne")
 
         opened_home = True
@@ -222,7 +222,7 @@ def open_multiplayer_menu():
         global difficulty
         global player_colour
 
-        btn_back = tk.Button(mp_menu_frame, command=open_home_menu, image=back_icon)
+        btn_back = tk.Button(mp_menu_frame, command=open_home_menu, image=back_icon, border=0)
         btn_back.place(relx=0.95, rely=0.1, anchor="ne")
 
 
@@ -337,7 +337,7 @@ def open_singleplayer_menu():
         global difficulty
         global player_colour
 
-        btn_back = tk.Button(sp_menu_frame, command=open_home_menu, image=back_icon)
+        btn_back = tk.Button(sp_menu_frame, command=open_home_menu, image=back_icon, border=0)
         btn_back.place(relx=0.95, rely=0.1, anchor="ne")
 
 
