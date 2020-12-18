@@ -15,116 +15,9 @@ import tkinter.colorchooser as tkcc
 
 
 
-def init(game_run_function,
-    multiplayer_run_function=NotImplemented,
-    multiplayer_join_function=NotImplemented,
-    name_gen_function=lambda : "Jad",
-    difficulty_options_list=("Very Easy", "Easy", "Medium", "Hard", "Very Hard", "Custom"),
-    dot_spawn_rate=20, ai_limit=20
-    ):
-    
-
-    ##  Variables
-    global WINDOW_BACKGROUND   # Gray chosen in documentation
-
-    global run_game
-    global run_mp_game
-    global join_mp_game
-
-    global difficulty_options
-    global gen_name
-    global max_spawn_rate
-    global max_ai_count
 
 
-    WINDOW_WIDTH = 1280     # These can be changed, but convenient for 720p to be used for
-    WINDOW_HEIGHT = 720     # reasons mentioned in design
- 
-    WINDOW_BACKGROUND = "#FAFAFA"   # Gray chosen in documentation
- 
-    # FONT_FAMILY = "Small Fonts"  # Switch to pixel graphics if time allows
-    FONT_FAMILY = "MV Boli"
-
-    run_game = game_run_function    # to switch to pygame to play the game
-    run_mp_game = multiplayer_run_function
-    join_mp_game = multiplayer_join_function
-
-    difficulty_options = difficulty_options_list
-    gen_name = name_gen_function
-    max_spawn_rate = dot_spawn_rate # max spawn rate of dots
-    max_ai_count = ai_limit
-
-    global JOIN_CODE_LENGTH     # required length of multiplayer game join code
-    JOIN_CODE_LENGTH = 6
-
-
-
-    global sound_on
- 
-    global opened_home
-    global opened_sp
-    global opened_mp
-
-    sound_on = True
- 
-    opened_home = False
-    opened_sp = False
-    opened_mp = False
-
-
-
-
-    ##  Create and display menu
-
-    global root
-
-    root = tk.Tk()
-    root.title("Jario")
-    root.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
-    root.configure(bg=WINDOW_BACKGROUND)
-
-
-    global difficulty
-    global large_font
-    global std_font
-    global player_colour
-
-    difficulty = tk.StringVar()
-    difficulty.set(difficulty_options[1])  # default difficulty
-
-    std_font = large_font = tkFont.Font(root=root, family=FONT_FAMILY, size=12)
-    large_font = tkFont.Font(root=root, family=FONT_FAMILY, size=20)
-
-    player_colour = "red"
-
-
-
-    ##  Create sp menu and mp menu frames here
-
-    ##  this means we can use pack_forget to close them on opening the home menu
-    ##  even if we haven't been to the relevant menu before
-
-    global sp_menu_frame
-    global mp_menu_frame
-
-    sp_menu_frame = tk.Frame(root, bg=WINDOW_BACKGROUND)
-    mp_menu_frame = tk.Frame(root, bg=WINDOW_BACKGROUND)
-
-
-
-    ##  Acquire images
-    global unmuted_icon
-    global muted_icon
-    global cross_icon
-    global back_icon
-
-    unmuted_icon = tk.PhotoImage(file="resources/images/menu_images/mute_icon.png")
-    muted_icon = tk.PhotoImage(file="resources/images/menu_images/mute_icon_muted.png")
-    cross_icon = tk.PhotoImage(file="resources/images/menu_images/cross_icon.png")
-    back_icon = tk.PhotoImage(file="resources/images/menu_images/back_icon.png")
-
-
-
+##  FUNCTIONS  ##
 
 def not_implemented():
     '''
@@ -133,372 +26,459 @@ def not_implemented():
     '''
     not_implemented_text = "This function has not been implemented yet"
 
-    alert(not_implemented_text)
+    # alert(not_implemented_text, root)
     print(not_implemented_text)
 
 
+def make_alert_func(root):
+    def alert(text):
+        '''
+        Create a small tktoplevel window to present an alert
+        '''
+        alert_window = tk.Toplevel(root)
+        alert_window.minsize(200, 200)
 
-def alert(text):
-    '''
-    Create a small tktoplevel window to present an alert
-    '''
-    alert_window = tk.Toplevel(root)
-    alert_window.minsize(200, 200)
+        alert_window.title("Alert")
+        tk.Label(alert_window, text=text).pack()
 
-    alert_window.title("Alert")
-    tk.Label(alert_window, text=text).pack()
+    return alert
 
 
 
 
-##  Button Functions
 
-# opening menus
-def open_home_menu():
-    global opened_home
 
-    global sp_menu_frame
-    global mp_menu_frame
-    sp_menu_frame.pack_forget()
-    mp_menu_frame.pack_forget()
 
-    if not opened_home:
 
-        ##  Main Menu screen
-        global home_menu_frame
-        home_menu_frame = tk.Frame(root, bg=WINDOW_BACKGROUND)
+class menus:
+    def __init__(self,
+        game_run_function=not_implemented,
+        multiplayer_run_function=not_implemented,
+        multiplayer_join_function=not_implemented,
+        name_gen_function=lambda : "Jad",
+        difficulty_options_list=("Very Easy", "Easy", "Medium", "Hard", "Very Hard", "Custom"),
+        dot_spawn_rate=20, ai_limit=20):
 
-        title = tk.Label(home_menu_frame, text="Jario", font=large_font, bg=WINDOW_BACKGROUND)
-        title.place(relx=0.5, rely=0.125, anchor="n")
 
 
-        ##  Singleplayer and multiplayer buttons
+        self.WINDOW_WIDTH = 1280     # These can be changed, but convenient for 720p to be used for
+        self.WINDOW_HEIGHT = 720     # reasons mentioned in design
 
-        global btn_singleplayer
-        btn_singleplayer = tk.Button(home_menu_frame, command=open_singleplayer_menu, text="Single Player", font=large_font)
-        btn_singleplayer.place(relx=0.2, rely=0.5, relwidth=0.2, relheight=0.15, anchor="w")
 
-        global btn_multiplayer
-        btn_multiplayer = tk.Button(home_menu_frame, command=open_multiplayer_menu, text="Multiplayer", font=large_font)
-        btn_multiplayer.place(relx=0.6, rely=0.5, relwidth=0.2, relheight=0.15, anchor="w")
+        self.WINDOW_BACKGROUND = "#FFF8C0"   # Gray chosen in documentation
 
 
+        self.FONT_FAMILY = "Small Fonts"  # Switch to pixel graphics if time allows
+        # self.FONT_FAMILY = "Wingdings"
 
-        ##  auxiliary buttons
+        self.run_game = game_run_function    # to switch to pygame to play the game
+        self.run_mp_game = multiplayer_run_function
+        self.join_mp_game = multiplayer_join_function
 
-        global btn_sound_toggle
-        btn_sound_toggle = tk.Button(home_menu_frame, command=toggle_sound, image=unmuted_icon, border=0)
-        btn_sound_toggle.place(relx=0.05, rely=0.1)
+        self.difficulty_options = difficulty_options_list
+        self.gen_name = name_gen_function
+        self.max_spawn_rate = dot_spawn_rate # max spawn rate of dots
+        self.max_ai_count = ai_limit
 
-        global btn_close_program
-        btn_close_program = tk.Button(home_menu_frame, command=close_program, image=cross_icon, border=0)
-        btn_close_program.place(relx=0.95, rely=0.1, anchor="ne")
+        # required length of multiplayer game join code
+        self.JOIN_CODE_LENGTH = 6
 
-        opened_home = True
 
-    home_menu_frame.pack(fill="both", expand=True)
+        # Tracking for buttons and menus
+        self.sound_on = True
 
+        self.opened_home = False
+        self.opened_sp = False
+        self.opened_mp = False
 
 
-def open_multiplayer_menu():
-    '''
-    Create and display multiplayer options menu
-    '''
-    home_menu_frame.pack_forget()
 
-    global opened_mp
-    global mp_menu_frame
+        ##  Create and display menu
 
+        self.root = tk.Tk()
+        self.root.title("Jario")
+        self.root.geometry(f"{self.WINDOW_WIDTH}x{self.WINDOW_HEIGHT}")
+        self.root.configure(bg=self.WINDOW_BACKGROUND)
 
-    if not opened_mp:
+        self.difficulty = tk.StringVar()
+        self.difficulty.set(self.difficulty_options[1])  # default difficulty
 
-        ##  multiplayer menu screen
-        global run_mp_game
-        global large_font
-        global std_font
+        self.std_font = tkFont.Font(root=self.root, family=self.FONT_FAMILY, size=12)
+        self.large_font = tkFont.Font(root=self.root, family=self.FONT_FAMILY, size=20)
 
-        global back_icon
-        global difficulty_options
-        global difficulty
-        global player_colour
+        self.player_colour = "red"
 
-        btn_back = tk.Button(mp_menu_frame, command=open_home_menu, image=back_icon, border=0)
-        btn_back.place(relx=0.95, rely=0.1, anchor="ne")
 
+        self.alert = make_alert_func(self.root)
 
 
-        ##  Connect to game
-        connect_options = tk.Frame(mp_menu_frame, bd=5, relief="groove") #, bg="blue")
-        connect_options.place(relx=0.2, rely=0.3, relwidth=0.2, relheight=0.4)
 
-        # Host game
-        btn_host = tk.Button(connect_options, command=run_mp_game, text="Host Game", font=large_font, bg="green")
-        btn_host.grid(columnspan=2, sticky="nsew")
 
 
-        # Provide join code
-        tk.Label(connect_options, text="Input game code to connect to:", wrap=100, font=std_font).grid(row=1, column=0, sticky="nsew")
+        ##  Create sp menu and mp menu frames here
 
-        global join_code
-        join_code = tk.StringVar()
-        join_code_input = tk.Entry(connect_options, textvariable=join_code)
-        join_code_input.grid(row=1, column=1, sticky="nsew")
+        ##  this means we can use pack_forget to close them on opening the home menu
+        ##  even if we haven't been to the relevant menu before
 
+        self.sp_menu_frame = tk.Frame(self.root, bg=self.WINDOW_BACKGROUND)
+        self.mp_menu_frame = tk.Frame(self.root, bg=self.WINDOW_BACKGROUND)
+        self.home_menu_frame = tk.Frame(self.root, bg=self.WINDOW_BACKGROUND)
 
-        # Connect to hosted game by provided code
-        btn_connect = tk.Button(connect_options, command=run_mp_game, text="Join Game", font=large_font, bg="green")
-        btn_connect.grid(row=2, columnspan=2, sticky="nsew")
 
 
-        ##  Allow widgets to resize themselves
-        connect_options.columnconfigure(0, weight=1)
-        connect_options.columnconfigure(1, weight=1)
 
-        connect_options.rowconfigure(0, weight=2)  # play button should be slightly larger than options
-        connect_options.rowconfigure(1, weight=1)
-        connect_options.rowconfigure(2, weight=2)
+        ##  Acquire images
+        self.unmuted_icon = tk.PhotoImage(file="resources/images/menu_images/mute_icon.png")
+        self.muted_icon = tk.PhotoImage(file="resources/images/menu_images/mute_icon_muted.png")
+        self.cross_icon = tk.PhotoImage(file="resources/images/menu_images/cross_icon.png")
+        self.back_icon = tk.PhotoImage(file="resources/images/menu_images/back_icon.png")
 
+        self.title_image = tk.PhotoImage(file="resources/images/menu_images/title.png")
+        self.play_image = tk.PhotoImage(file="resources/images/menu_images/play.png")
 
+        #  Create Background
+        self.bg_image = tk.PhotoImage(file="resources/images/menu_images/background3.png")
 
 
+    ##  Button Functions
 
+    # opening menus
+    def open_home_menu(self):
+        self.sp_menu_frame.pack_forget()
+        self.mp_menu_frame.pack_forget()
 
-        # Options for user to customise themselves or their blob before hosting/connecting
+        if not self.opened_home:
 
-        join_options_count = 0
+            ##  Main Menu screen
 
-        join_options = tk.Frame(mp_menu_frame, bd=5, relief="groove") #, bg="yellow")
-        join_options.place(relx=0.8, rely=0.3, relwidth=0.2, relheight=0.4, anchor="ne")
+            # Background
+            home_bg_label = tk.Label(self.home_menu_frame, image=self.bg_image, bg=self.WINDOW_BACKGROUND)
+            home_bg_label.place(relx=0, rely=0, relwidth=1, relheight=1)
 
 
-        # Configure game
+            # https://textcraft.net/
+            title = tk.Label(self.home_menu_frame, image=self.title_image, bg=self.WINDOW_BACKGROUND)
+            title.place(relx=0.5, rely=0.125, anchor="n")
 
-        tk.Label(join_options, text="Configure Game", font=std_font).grid(row=0, columnspan=2, sticky="nsew")
 
-        # difficulty
-        global difficulty_option_selector
-        tk.Label(join_options, text="Difficulty", font=std_font).grid(row=1, column=0, sticky="nsew")
-        difficulty_option_selector = tk.OptionMenu(join_options, difficulty, *difficulty_options)
-        difficulty_option_selector.grid(row=1, column=1, sticky="nsew")
-        join_options_count += 1
 
-        # name
-        global name_input   # allow name to be retrieved elsewhere
-        tk.Label(join_options, text="Name:", font=std_font).grid(row=2, column=0, sticky="nsew")
-        name_input = tk.Entry(join_options)
-        name_input.grid(row=2, column=1, sticky="nsew")
-        name_input.insert(0, gen_name())
-        join_options_count += 1
+            ##  Singleplayer and multiplayer buttons
 
-        # set colour
-        global colour_input
-        tk.Label(join_options, text="Colour:", font=std_font).grid(row=3, column=0, sticky="nsew")
-        colour_input = tk.Button(join_options, command=change_colour, text="Select Colour!", font=std_font, bg=player_colour)
-        colour_input.grid(row=3, column=1, sticky="nsew")
-        join_options_count += 1
+            self.btn_singleplayer = tk.Button(self.home_menu_frame, command=self.open_singleplayer_menu, text="Single Player", font=self.large_font)
+            self.btn_singleplayer.place(relx=0.2, rely=0.5, relwidth=0.2, relheight=0.15, anchor="w")
 
+            self.btn_multiplayer = tk.Button(self.home_menu_frame, command=self.open_multiplayer_menu, text="Multiplayer", font=self.large_font)
+            self.btn_multiplayer.place(relx=0.6, rely=0.5, relwidth=0.2, relheight=0.15, anchor="w")
 
-        ##  Allow widgets to resize themselves
-        join_options.columnconfigure(0, weight=1)
-        join_options.columnconfigure(1, weight=1)
 
-        join_options.rowconfigure(0, weight=2)  # play button should be slightly larger than options
+            ##  auxiliary buttons
 
-        for i in range(1, join_options_count + 1):
-            join_options.rowconfigure(i, weight=1)
+            self.btn_sound_toggle = tk.Button(self.home_menu_frame, command=self.toggle_sound, image=self.unmuted_icon, border=0, bg=self.WINDOW_BACKGROUND)  # , border=0)
+            self.btn_sound_toggle.place(relx=0.05, rely=0.1)
 
+            self.btn_close_program = tk.Button(self.home_menu_frame, command=self.close_program, image=self.cross_icon, border=0, bg=self.WINDOW_BACKGROUND)  # , border=0)
+            self.btn_close_program.place(relx=0.95, rely=0.1, anchor="ne")
 
-        opened_mp = True
+            self.opened_home = True
 
-    mp_menu_frame.pack(fill="both", expand=True)
+        self.home_menu_frame.pack(fill="both", expand=True)
 
 
 
+    def open_multiplayer_menu(self):
+        '''
+        Create and display multiplayer options menu
+        '''
+        self.home_menu_frame.pack_forget()
 
-def open_singleplayer_menu():
-    '''
-    Create and display single player options menu
-    '''
-    home_menu_frame.pack_forget()
 
-    global opened_sp
-    global sp_menu_frame
+        if not self.opened_mp:
 
+            ##  multiplayer menu screen
 
-    if not opened_sp:
 
-        ##  single player menu screen
-        global run_game
-        global large_font
-        global std_font
+            # Background
+            mp_bg_label = tk.Label(self.mp_menu_frame, image=self.bg_image, bg=self.WINDOW_BACKGROUND)
+            mp_bg_label.place(relx=0, rely=0, relwidth=1, relheight=1)
 
-        global back_icon
-        global difficulty_options
-        global difficulty
-        global player_colour
 
-        btn_back = tk.Button(sp_menu_frame, command=open_home_menu, image=back_icon, border=0)
-        btn_back.place(relx=0.95, rely=0.1, anchor="ne")
 
 
+            self.btn_back = tk.Button(self.mp_menu_frame, command=self.open_home_menu, image=self.back_icon, border=0, bg=self.WINDOW_BACKGROUND)  # , border=0)
+            self.btn_back.place(relx=0.95, rely=0.1, anchor="ne")
 
-        ##  simple options
-        simple_options_count = 0    # how many simple options there are, for resizing
-        sp_simple_options = tk.Frame(sp_menu_frame, bd=5, relief="groove") #, bg="white")
-        sp_simple_options.place(relx=0.2, rely=0.3, relwidth=0.2, relheight=0.4)
 
 
-        btn_play = tk.Button(sp_simple_options, command=run_game, text="PLAY", font=large_font, bg="green")
-        btn_play.grid(columnspan=2, sticky="nsew")
+            ##  Connect to game
+            connect_options = tk.Frame(self.mp_menu_frame, bd=5, relief="groove") #, bg="blue")
+            connect_options.place(relx=0.2, rely=0.3, relwidth=0.2, relheight=0.4)
 
-        # simple option widgets go here
-        
-        # difficulty
-        global difficulty_option_selector
-        tk.Label(sp_simple_options, text="Difficulty", font=std_font).grid(row=1, column=0, sticky="nsew")
-        difficulty_option_selector = tk.OptionMenu(sp_simple_options, difficulty, *difficulty_options)
-        difficulty_option_selector.grid(row=1, column=1, sticky="nsew")
-        simple_options_count += 1
+            # Host game
+            btn_host = tk.Button(connect_options, command=self.run_mp_game, text="Host Game", font=self.large_font, bg="green")
+            btn_host.grid(columnspan=2, sticky="nsew")
 
-        # name
-        global name_input   # allow name to be retrieved elsewhere
-        tk.Label(sp_simple_options, text="Name:", font=std_font).grid(row=2, column=0, sticky="nsew")
-        name_input = tk.Entry(sp_simple_options)
-        name_input.grid(row=2, column=1, sticky="nsew")
-        name_input.insert(0, gen_name())
-        simple_options_count += 1
 
-        # set colour
-        global colour_input
-        tk.Label(sp_simple_options, text="Colour:", font=std_font).grid(row=3, column=0, sticky="nsew")
-        colour_input = tk.Button(sp_simple_options, command=change_colour, text="Select Colour!", font=std_font, bg=player_colour)
-        colour_input.grid(row=3, column=1, sticky="nsew")
-        simple_options_count += 1
+            # Provide join code
+            tk.Label(connect_options, text="Input game code to connect to:", wrap=100, font=self.std_font).grid(row=1, column=0, sticky="nsew")
 
 
+            self.join_code = tk.StringVar()
+            self.join_code_input = tk.Entry(connect_options, textvariable=self.join_code)
+            self.join_code_input.grid(row=1, column=1, sticky="nsew")
 
 
-        ##  Allow widgets to resize themselves
-        sp_simple_options.columnconfigure(0, weight=1)
-        sp_simple_options.columnconfigure(1, weight=1)
+            # Connect to hosted game by provided code
+            btn_connect = tk.Button(connect_options, command=self.run_mp_game, text="Join Game", font=self.large_font, bg="green")
+            btn_connect.grid(row=2, columnspan=2, sticky="nsew")
 
-        sp_simple_options.rowconfigure(0, weight=2)  # play button should be slightly larger than options
 
-        for i in range(1, simple_options_count + 1):
-            sp_simple_options.rowconfigure(i, weight=1)
+            ##  Allow widgets to resize themselves
+            connect_options.columnconfigure(0, weight=1)
+            connect_options.columnconfigure(1, weight=1)
 
+            connect_options.rowconfigure(0, weight=2)  # play button should be slightly larger than options
+            connect_options.rowconfigure(1, weight=1)
+            connect_options.rowconfigure(2, weight=2)
 
 
 
-        ## advanced options
-        advanced_options_count = 0
 
-        sp_advanced_options = tk.Frame(sp_menu_frame, bd=5, relief="groove") #, bg="white")
-        sp_advanced_options.place(relx=0.8, rely=0.3, relwidth=0.2, relheight=0.4, anchor="ne")
+            # Options for user to customise themselves or their blob before hosting/connecting
 
+            join_options_count = 0
 
-        tk.Label(sp_advanced_options, text="Please select custom difficulty for these settings to take effect", wrap=200, font=std_font).grid(row=0, column=0, columnspan=2, sticky="nsew")
-        advanced_options_count += 1
+            join_options = tk.Frame(self.mp_menu_frame, bd=5, relief="groove") #, bg="yellow")
+            join_options.place(relx=0.8, rely=0.3, relwidth=0.2, relheight=0.4, anchor="ne")
 
-        # advanced option widgets go here
-        # This will be populated as the actual game is made so it can be filled with relevant settings
 
+            # Configure game
 
-        # dot spawn rate
-        global spawn_rate_slider
-        global max_spawn_rate
-        tk.Label(sp_advanced_options, text="Dot Spawn Rate:", font=std_font).grid(row=1, column=0, sticky="nsew")
-        spawn_rate_slider = tk.Scale(sp_advanced_options, from_=1, to=max_spawn_rate, orient="horizontal", font=std_font)
-        spawn_rate_slider.grid(row=1, column=1, sticky="nsew")
-        advanced_options_count += 1
+            tk.Label(join_options, text="Configure Game", font=self.std_font).grid(row=0, columnspan=2, sticky="nsew")
 
 
+            # difficulty
+            tk.Label(join_options, text="Difficulty", font=self.std_font).grid(row=1, column=0, sticky="nsew")
 
-        # AI spawn limit
-        global ai_count_slider
-        global max_ai_count
-        tk.Label(sp_advanced_options, text="AI spawn limit:", font=std_font).grid(row=2, column=0, sticky="nsew")
-        ai_count_slider = tk.Scale(sp_advanced_options, from_=1, to=max_ai_count, orient="horizontal", font=std_font)
-        ai_count_slider.grid(row=2, column=1, sticky="nsew")
-        advanced_options_count += 1
+            self.difficulty_option_selector = tk.OptionMenu(join_options, self.difficulty, *self.difficulty_options)
+            self.difficulty_option_selector.grid(row=1, column=1, sticky="nsew")
 
+            join_options_count += 1
 
+            # name
+            # allow name to be retrieved elsewhere
+            tk.Label(join_options, text="Name:", font=self.std_font).grid(row=2, column=0, sticky="nsew")
 
-        ##  Allow widgets to resize themselves
-        sp_advanced_options.columnconfigure(0, weight=1)
-        sp_advanced_options.columnconfigure(1, weight=1)
+            self.name_input = tk.Entry(join_options)
+            self.name_input.grid(row=2, column=1, sticky="nsew")
+            self.name_input.insert(0, self.gen_name())
 
+            join_options_count += 1
 
-        for i in range(advanced_options_count + 1):
-            sp_advanced_options.rowconfigure(i, weight=1)
+            # set colour
+            tk.Label(join_options, text="Colour:", font=self.std_font).grid(row=3, column=0, sticky="nsew")
 
+            self.colour_input = tk.Button(join_options, command=self.change_colour, text="Select Colour!", font=self.std_font, bg=self.player_colour)
+            self.colour_input.grid(row=3, column=1, sticky="nsew")
 
+            join_options_count += 1
 
-        opened_sp = True
 
-    sp_menu_frame.pack(fill="both", expand=True)
+            ##  Allow widgets to resize themselves
+            join_options.columnconfigure(0, weight=1)
+            join_options.columnconfigure(1, weight=1)
 
+            join_options.rowconfigure(0, weight=2)  # play button should be slightly larger than options
 
+            for i in range(1, join_options_count + 1):
+                join_options.rowconfigure(i, weight=1)
 
 
-# Auxiliary Functions
+            self.opened_mp = True
 
-def change_colour():
-    '''
-    Change the selected colour and update the colour of the button for clarity
-    '''
-    global player_colour
-    global colour_input
-    player_colour = tkcc.askcolor()[1]
-    colour_input.configure(bg=player_colour)
-    # print(colour)
+        self.mp_menu_frame.pack(fill="both", expand=True)
 
 
-def get_spawn_rate():
-    '''
-    Get Spawn rate of dots set by the user
-    '''
-    global spawn_rate_slider
-    return spawn_rate_slider.get()
 
+    def open_singleplayer_menu(self):
+        '''
+        Create and display single player options menu
+        '''
+        self.home_menu_frame.pack_forget()
 
-def get_join_code():
-    '''
-    Return code entered by user to join multiplayer game
-    '''
-    global join_code
-    global JOIN_CODE_LENGTH
-    code = join_code.get()
-    if len(code) != JOIN_CODE_LENGTH:
-        alert("This code is the wrong length!")
-    else:
-        return code
 
+        if not self.opened_sp:
 
+            ##  single player menu screen
 
-def toggle_sound():
-    global sound_on
-    if sound_on:
-        btn_sound_toggle.config(image=muted_icon)
-        sound_on = False
+            # Background
+            sp_bg_label = tk.Label(self.sp_menu_frame, image=self.bg_image, bg=self.WINDOW_BACKGROUND)
+            sp_bg_label.place(relx=0, rely=0, relwidth=1, relheight=1)
 
-    else:
-        btn_sound_toggle.config(image=unmuted_icon)
-        sound_on = True
 
-    not_implemented()
 
+            btn_back = tk.Button(self.sp_menu_frame, command=self.open_home_menu, image=self.back_icon, border=0, bg=self.WINDOW_BACKGROUND)  # , border=0)
+            btn_back.place(relx=0.95, rely=0.1, anchor="ne")
 
-def close_program():
-    exit()
+
+            ##  simple options
+            simple_options_count = 0    # how many simple options there are, for resizing
+
+            sp_simple_options = tk.Frame(self.sp_menu_frame, bd=5, relief="groove") #, bg="white")
+            sp_simple_options.place(relx=0.2, rely=0.3, relwidth=0.2, relheight=0.4)
+
+
+            # btn_play = tk.Button(sp_simple_options, command=self.run_game, text="PLAY", font=self.large_font, bg="green")
+            btn_play = tk.Button(sp_simple_options, command=self.run_game, image=self.play_image, bg=self.WINDOW_BACKGROUND)
+            btn_play.grid(columnspan=2, sticky="nsew")
+
+            # simple option widgets go here
+            
+            # difficulty
+            tk.Label(sp_simple_options, text="Difficulty", font=self.std_font).grid(row=1, column=0, sticky="nsew")
+
+            self.difficulty_option_selector = tk.OptionMenu(sp_simple_options, self.difficulty, *self.difficulty_options)
+            self.difficulty_option_selector.grid(row=1, column=1, sticky="nsew")
+
+            simple_options_count += 1
+
+            # name
+            # allow name to be retrieved elsewhere
+            tk.Label(sp_simple_options, text="Name:", font=self.std_font).grid(row=2, column=0, sticky="nsew")
+
+            self.name_input = tk.Entry(sp_simple_options)
+            self.name_input.grid(row=2, column=1, sticky="nsew")
+            self.name_input.insert(0, self.gen_name())
+
+            simple_options_count += 1
+
+            # set colour
+            tk.Label(sp_simple_options, text="Colour:", font=self.std_font).grid(row=3, column=0, sticky="nsew")
+
+            self.colour_input = tk.Button(sp_simple_options, command=self.change_colour, text="Select Colour!", font=self.std_font, bg=self.player_colour)
+            self.colour_input.grid(row=3, column=1, sticky="nsew")
+
+            simple_options_count += 1
+
+
+
+
+            ##  Allow widgets to resize themselves
+            sp_simple_options.columnconfigure(0, weight=1)
+            sp_simple_options.columnconfigure(1, weight=1)
+
+            sp_simple_options.rowconfigure(0, weight=2)  # play button should be slightly larger than options
+
+            for i in range(1, simple_options_count + 1):
+                sp_simple_options.rowconfigure(i, weight=1)
+
+
+
+
+            ## advanced options
+            advanced_options_count = 0
+
+            sp_advanced_options = tk.Frame(self.sp_menu_frame, bd=5, relief="groove") #, bg="white")
+            sp_advanced_options.place(relx=0.8, rely=0.3, relwidth=0.2, relheight=0.4, anchor="ne")
+
+
+            tk.Label(sp_advanced_options, text="Please select custom difficulty for these settings to take effect", wrap=200, font=self.std_font).grid(row=0, column=0, columnspan=2, sticky="nsew")
+            advanced_options_count += 1
+
+            # advanced option widgets go here
+            # This will be populated as the actual game is made so it can be filled with relevant settings
+
+
+            # dot spawn rate
+            tk.Label(sp_advanced_options, text="Dot Spawn Rate:", font=self.std_font).grid(row=1, column=0, sticky="nsew")
+
+            self.spawn_rate_slider = tk.Scale(sp_advanced_options, from_=1, to=self.max_spawn_rate, orient="horizontal", font=self.std_font)
+            self.spawn_rate_slider.grid(row=1, column=1, sticky="nsew")
+
+            advanced_options_count += 1
+
+
+
+            # AI spawn limit
+            tk.Label(sp_advanced_options, text="AI spawn limit:", font=self.std_font).grid(row=2, column=0, sticky="nsew")
+
+            self.ai_count_slider = tk.Scale(sp_advanced_options, from_=1, to=self.max_ai_count, orient="horizontal", font=self.std_font)
+            self.ai_count_slider.grid(row=2, column=1, sticky="nsew")
+
+            advanced_options_count += 1
+
+
+
+            ##  Allow widgets to resize themselves
+            sp_advanced_options.columnconfigure(0, weight=1)
+            sp_advanced_options.columnconfigure(1, weight=1)
+
+
+            for i in range(advanced_options_count + 1):
+                sp_advanced_options.rowconfigure(i, weight=1)
+
+
+
+            self.opened_sp = True
+
+        self.sp_menu_frame.pack(fill="both", expand=True)
+
+
+
+    # Auxiliary Functions
+
+    def change_colour(self):
+        '''
+        Change the selected colour and update the colour of the button for clarity
+        '''
+        self.player_colour = tkcc.askcolor()[1]
+        self.colour_input.configure(bg=self.player_colour)
+        # print(colour)
+
+
+
+    def get_spawn_rate(self):
+        '''
+        Get Spawn rate of dots set by the user
+        '''
+        return self.spawn_rate_slider.get()
+
+
+
+    def get_join_code(self):
+        '''
+        Return code entered by user to join multiplayer game
+        '''
+        code = self.join_code.get()
+        if len(code) != self.JOIN_CODE_LENGTH:
+            self.alert("This code is the wrong length!")
+        else:
+            return code
+
+
+
+    def toggle_sound(self):
+        if self.sound_on:
+            self.btn_sound_toggle.config(image=self.muted_icon)
+            self.sound_on = False
+
+        else:
+            self.btn_sound_toggle.config(image=self.unmuted_icon)
+            self.sound_on = True
+
+        self.alert("Sound isn't on anyway!")
+
+
+    @staticmethod
+    def close_program():
+        exit()
 
 
 
 
 if __name__ == "__main__":
 
-    init(not_implemented)
+    a = menus()
 
-    open_home_menu()
+    a.open_home_menu()
 
-    root.mainloop()
+    a.root.mainloop()
