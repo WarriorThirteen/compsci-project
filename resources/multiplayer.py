@@ -11,6 +11,7 @@ class test_game:
         self.dot_loc_list = [(1,1), (2,1)]
         self.blobs = {}
 
+
     def run(self):
         while True:
             self.count += 1
@@ -19,8 +20,40 @@ class test_game:
 
             time.sleep(0.05)
 
-    def create_blob(self, controller, id):
-        self.blobs[id] = "blob"
+
+    def configure_game(self, config):
+        '''
+        Configure the game setup to mimic someone else's game.
+        '''
+        pass
+    
+
+    def create_blob(self, controller, identity):
+        self.blobs[identity] = "blob"
+
+
+    def info_for_new(self):
+        '''
+        return array of info for a new player
+        '''
+        return (self.randomness_seed, self.count, self.dot_loc_list, self.blobs)
+
+
+    def data_to_send(self):
+        '''
+        Generate data to send to the server
+        '''
+        return "Yes"
+
+
+    def disconnect_blob(self, identity):
+        '''
+        disconnect a networked blob controller and delete their blob
+        '''
+        del self.blobs[identity]
+    
+
+
 
 game = test_game()
 
@@ -40,51 +73,40 @@ BUFFER_SIZE = 4096
 
 
 # Set greetings for new players:
-first_connection_message = "First time connection"
-add_to_list_message = "Add me to your client list"
-disconnecting_message = "I am off, please forget me"
+new_connection_message = "+"
+# add_to_list_message = "+"   We are client server now
+disconnecting_message = "X"
 
 
 # Set addresses and port number:
-# We are using peer to peer so no host
 MY_ADDRESS = "0.0.0.0"
 PORT = 5001
 
 
-# Set of connected client sockets for sending data
-# and connected addresses to send to new clients
-connected_clients = set()
+# Set of connected client sockets for sending data in server mode
+# and connected addresses to send to new clients and record who we expect info about
+connected_client_sockets = set()
 connected_addresses = set()
 
 
 # Control / Configuration variables
 MAX_CONNECTIONS = 5
+DELAY_BETWEEN_SEND = 0.1
 
 
 
-##  GENERATE DATA PACKET FUNCTIONS
+##  GENERATE DATA PACKET FUNCTION
 
 
 def gen_intro_packet():
     '''
     Generate and return a packet for new players.
     This packet should contain the randomness seed, current random_count, connected player addresses, and the dot location list.
-    Other player addresses seperated from rest of packets by two seperators
     '''
-    packet = ""
-    packet += str(game.randomness_seed)
-    packet += SEPERATOR
-    packet += str(game.count)
-    packet += SEPERATOR
-    packet += str(game.dot_loc_list)
-    packet += SEPERATOR
 
-    for i in connected_addresses:
-        packet += SEPERATOR
-        packet += str(i)
+    packet = SEPERATOR.join(game.info_for_new())
 
     return packet
-
 
 
 
@@ -97,7 +119,7 @@ def game_box():
 
 # Second thread: listen for new people
 
-def listen_for_clients():
+def listen_for_clients(listening):
     '''
     Listen on the socket.
     When a new client attempts to connect, record their details and set up a listener thread for them
@@ -109,20 +131,18 @@ def listen_for_clients():
 
     s_listener.listen(5)
 
-    while True:
+    while listening.isSet():
         # Accept incoming connections
         new_socket, address = s_listener.accept()
 
         # Add new client to list of client sockets
-        connected_clients.add(new_socket)
+        connected_client_sockets.add(new_socket)
         connected_addresses.add(address)
 
         # Start listening to client for new info
-        new_thread = threading.Thread(target=listen_to, args=(address, new_socket,))
+        new_thread = threading.Thread(target=client_connector, args=(address, new_socket,))
         new_thread.daemon = True
         new_thread.start()
-
-
 
 
 
@@ -132,100 +152,155 @@ def listen_for_clients():
 
 # Third thread: Listen to the connected clients:
 
-def listen_to(client_address, client_socket=None, mode="receive"):
+def client_connector(client_address, client_socket):
     '''
-    Receive an address from function call.
-    Connect to address if mode is "introduce"
-    Perform the handshake, and then create a new blob for this player.
-    Control the player's blob depending on their messaged actions.
-
-    2 Modes:
-    introduce: for when we connect to the client
-    receive: for when a new client connects to us
-
-    introduce does not need a client_socket to be provided
+    Function to receive data from a client.
+    Client will be sent information about the current game.
+    Client will then be allowed to send information about their activities,
+    which will be sent to all other clients
+    and will be continuosly sent data from other clients for their game.
     '''
-    go = True
-    if client_socket == None:
-        mode = "introduce"
+    
+    # Step one send new client game data:
+    client_socket.send(gen_intro_packet().encode())
 
-    try:    # Greet the new contact
+    # Generate this player a blob:
+    game.create_blob("networked", client_address)
+
+    # Tell clients a new player has joined:
+    msg = SEPERATOR.join((new_connection_message, client_address))
+    for client in connected_client_sockets:
+        client.send(msg.encode())
 
 
-        if mode == "receive": # We are receiving a message from a new client:
-            # Receive introduction for handshake
-            greeting = client_socket.recv(BUFFER_SIZE).decode()
+    # Now we do a loop of receiving and resending:
+    while True:
+        # Listen for message
+        msg = client_socket.recv(BUFFER_SIZE).decode()
 
-            if greeting == first_connection_message:
-                # send intro info to new player
-                client_socket.send(gen_intro_packet().encode())
+        # Player is leaving the game
+        if msg == disconnecting_message:
+            game.disconnect_blob(client_address)
 
-            elif greeting == add_to_list_message:
-                # They are added to our list when they connect to us
-                pass
+            # tell other players this player has left:
+            msg = disconnecting_message + SEPERATOR + client_address
+            for client in connected_client_sockets:
+                client.send(msg.encode())
 
-            # Create a blob for this player
-            game.create_blob("networked", client_address)
 
+        # Resend message to our other clients:
+        for client in connected_client_sockets:
+            client.send(msg.encode())
+
+        # Process message for our game
+        process_game_info(msg)
 
     
-        elif mode == "introduce":
-            # We need to say hello and receive data about the game and other players:
-            client_socket.send(first_connection_message.encode())
-            game_data, other_clients = client_socket.receive(BUFFER_SIZE).decode().split((SEPERATOR + SEPERATOR))
+def connect_to_server(server_address):
+    '''
+    Create a socket and connect to a server with a provided address.
+    Receive info packet from server.
+    '''
+
+    # connect to server
+    s = socket.socket()
+    s.connect((server_address, PORT))
+
+    # Receive data until end of welcome packet:
+    intro_packet = s.recv(BUFFER_SIZE).decode().split(SEPERATOR)
+
+    # Configure game with welcome packet
+    game.configure_game(intro_packet) # TODO
+
+    return s
 
 
-            # Greet the other clients
-            for address in other_clients:
-   
+def listen_to_server(s):
+    '''
+    Listen to the server for messages
+    and take appropriate action
+    '''
+    while True:
+        msg = s.recv(BUFFER_SIZE).decode().split(SEPERATOR)
+
+        if msg[0] == new_connection_message:
+            # A new player has connected
+            # so make them a blob in our game
+            game.create_blob("networked", msg[1])
+
+        elif msg[0] == disconnecting_message:
+            # A player has disconnected
+            game.disconnect_blob(msg[1])
+
+        else:
+            # Message is game info
+            process_game_info(msg)
 
 
-                ######### I NEED TO CONNECT TO NEW CLIENT, CAN ONE SOCKET CONNECT MULTIPLE TIMES 
-                new_socket = sock
-
-                # Start listening to client for new info
-                new_thread = threading.Thread(target=listen_to, args=(new_socket, address, "greet",))
-                new_thread.daemon = True
-                new_thread.start()
-
-
-
-            # configure our game based on data:
-            game_data.split(SEPERATOR)
-            pass # TODO
-
-        
-
-
-    except Exception as e: # Client disconnected during meeting sequence
-        go = False
-        print(f"Error encountered: {e}")
-
-    
+# Use info we receive about game actions
+def process_game_info(message):
+    '''
+    Process received game data into gameplay
+    '''
+    pass
 
 
 
 
+##  GENERIC FUNCTIONS FOR EXTERNAL USE
+
+def join(server_address):
+    '''
+    Connect to and play with people on a server
+    '''
+
+    # Generate socket connected to server and configure game
+    s = connect_to_server(server_address)
+
+    # Setup thread to continuously listen to server for updates
+    server_listener = threading.Thread(target=listen_to_server, args=(s,))
+    server_listener.daemon = True
+    server_listener.start()
 
 
-##  Main Loop
-def main():
-    
+    # every time tick send our data to the server
+    while True:
+        msg = game.data_to_send()
+        if msg == "End":
+            break
+        s.send(msg.encode())
 
-    # thread 1 - Run game thread
+    # Game Over :(
+    s.close()
+
+
+
+
+def host():
+    '''
+    Host a server for others to join
+    '''
+    # Run our game
     game_thread = threading.Thread(target=game_box)
     game_thread.daemon = True
     game_thread.start()
 
+    # Now start Listening
+    listening = threading.Event()
+    listening.set()
 
-    while game.count != 59:
-        print(game.count)
+    listener_thread = threading.Thread(target=listen_for_clients, args=(listening,))
+    listener_thread.daemon = True
+    listener_thread.start()
 
-    # print(socket.gethostbyname(socket.gethostname())) Prints ip address of this computer
-
-
+    # Simple stop hosting system
+    input()
+    listening.clear()
 
 
 
 if __name__ == "__main__":
-    main()
+    
+    game_thread = threading.Thread(target=game_box)
+    game_thread.daemon = True
+    game_thread.start()
