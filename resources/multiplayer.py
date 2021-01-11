@@ -1,6 +1,7 @@
 ##  IMPORTS
 
-#  import game
+import game as gm
+
 class test_game:
     '''
     Test class to simulate running of the game and gathering it's data from a thread
@@ -10,6 +11,7 @@ class test_game:
         self.randomness_seed = 1234
         self.dot_loc_list = [(1,1), (2,1)]
         self.blobs = {}
+        self.UPS = 20
 
 
     def run(self):
@@ -28,7 +30,7 @@ class test_game:
         pass
     
 
-    def create_blob(self, controller, identity):
+    def create_blob(self, identity, controller):
         self.blobs[identity] = "blob"
 
 
@@ -46,16 +48,23 @@ class test_game:
         return "Yes"
 
 
+    def process_player_move(self, data):
+        '''
+        Process an update for movement of a player blob
+        '''
+        pass
+
+
     def disconnect_blob(self, identity):
         '''
-        disconnect a networked blob controller and delete their blob
+        Disconnect a networked blob controller and delete their blob
         '''
         del self.blobs[identity]
     
 
 
 
-game = test_game()
+game = gm.game()
 
 import socket
 import threading
@@ -69,6 +78,7 @@ from datetime import datetime
 
 # seperator token to divide parts of message and buffer is how large each message is.
 SEPERATOR = "<seperator>"
+EOM_TOKEN = "<end>"
 BUFFER_SIZE = 4096
 
 
@@ -103,23 +113,21 @@ def gen_intro_packet():
     Generate and return a packet for new players.
     This packet should contain the randomness seed, current random_count, connected player addresses, and the dot location list.
     '''
-
     packet = SEPERATOR.join(game.info_for_new())
 
     return packet
 
 
 
+# Thread to run game
 
-# First thread: run game
-
-def game_box():
-    game.run()
+# def game_box():
+#     game.run()  ## PYGAME IS NOT THREAD SAFE
 
 
-# Second thread: listen for new people
+# Listen for new people
 
-def listen_for_clients(listening):
+def listen_for_clients():
     '''
     Listen on the socket.
     When a new client attempts to connect, record their details and set up a listener thread for them
@@ -131,7 +139,7 @@ def listen_for_clients(listening):
 
     s_listener.listen(5)
 
-    while listening.isSet():
+    while True:
         # Accept incoming connections
         new_socket, address = s_listener.accept()
 
@@ -140,7 +148,7 @@ def listen_for_clients(listening):
         connected_addresses.add(address)
 
         # Start listening to client for new info
-        new_thread = threading.Thread(target=client_connector, args=(address, new_socket,))
+        new_thread = threading.Thread(target=client_connector, args=(address[0], new_socket,))
         new_thread.daemon = True
         new_thread.start()
 
@@ -150,7 +158,7 @@ def listen_for_clients(listening):
     s_listener.close()
 
 
-# Third thread: Listen to the connected clients:
+# Listen to the connected clients:
 
 def client_connector(client_address, client_socket):
     '''
@@ -164,36 +172,42 @@ def client_connector(client_address, client_socket):
     # Step one send new client game data:
     client_socket.send(gen_intro_packet().encode())
 
+
     # Generate this player a blob:
-    game.create_blob("networked", client_address)
+    game.create_blob(client_address, "networked")
 
     # Tell clients a new player has joined:
     msg = SEPERATOR.join((new_connection_message, client_address))
     for client in connected_client_sockets:
-        client.send(msg.encode())
+        if client != client_socket:
+            client.send(msg.encode())
 
 
     # Now we do a loop of receiving and resending:
     while True:
         # Listen for message
-        msg = client_socket.recv(BUFFER_SIZE).decode()
+        msg_list = client_socket.recv(BUFFER_SIZE).decode().split(EOM_TOKEN)
 
-        # Player is leaving the game
-        if msg == disconnecting_message:
-            game.disconnect_blob(client_address)
+        # When we receive a message, send back our data:
+        client_socket.send()
 
-            # tell other players this player has left:
-            msg = disconnecting_message + SEPERATOR + client_address
+        for msg in msg_list:
+
+            # Player is leaving the game
+            if msg == disconnecting_message:
+                game.disconnect_blob(client_address)
+
+                # tell other players this player has left:
+                msg = disconnecting_message + SEPERATOR + client_address
+
+            # Process message for our game
+            process_game_info(msg.removesuffix(EOM_TOKEN))
+
+            # Resend message to our other clients:
             for client in connected_client_sockets:
-                client.send(msg.encode())
+                if client != client_socket:          # don't send message back to sender
+                    client.send(msg.encode())
 
-
-        # Resend message to our other clients:
-        for client in connected_client_sockets:
-            client.send(msg.encode())
-
-        # Process message for our game
-        process_game_info(msg)
 
     
 def connect_to_server(server_address):
@@ -221,20 +235,39 @@ def listen_to_server(s):
     and take appropriate action
     '''
     while True:
-        msg = s.recv(BUFFER_SIZE).decode().split(SEPERATOR)
+        msg_list = s.recv(BUFFER_SIZE).decode().split(EOM_TOKEN)    # Prevent multiple messages conjoining in a buffer
 
-        if msg[0] == new_connection_message:
-            # A new player has connected
-            # so make them a blob in our game
-            game.create_blob("networked", msg[1])
+        for msg in msg_list:
+            msg = msg.split(SEPERATOR)
+            if msg[0] == new_connection_message:
+                # A new player has connected
+                # so make them a blob in our game
+                game.create_blob(msg[1], "networked")
 
-        elif msg[0] == disconnecting_message:
-            # A player has disconnected
-            game.disconnect_blob(msg[1])
+            elif msg[0] == disconnecting_message:
+                # A player has disconnected
+                game.disconnect_blob(msg[1])
 
-        else:
-            # Message is game info
-            process_game_info(msg)
+            else:
+                # Message is game info
+                process_game_info(msg[0].removesuffix(EOM_TOKEN))
+
+
+
+def broadcast_to_server(s):
+    '''
+    Every few milliseconds, send our data to the server.
+    This happens here as pygame is not thread safe
+    '''
+    time.sleep(1) # So we don't start sending data before game starts
+
+    while True:
+        msg = game.data_to_send() + EOM_TOKEN
+        if msg == "End":         # TODO end game without crash
+            break
+        s.send(msg.encode())
+        time.sleep(1 / game.UPS)
+
 
 
 # Use info we receive about game actions
@@ -242,7 +275,9 @@ def process_game_info(message):
     '''
     Process received game data into gameplay
     '''
-    pass
+    if message:
+        game.process_player_move(message)
+    
 
 
 
@@ -253,9 +288,13 @@ def join(server_address):
     '''
     Connect to and play with people on a server
     '''
+    print("[MULTIPLAYER]:JOINING")
 
     # Generate socket connected to server and configure game
     s = connect_to_server(server_address)
+
+
+
 
     # Setup thread to continuously listen to server for updates
     server_listener = threading.Thread(target=listen_to_server, args=(s,))
@@ -264,11 +303,21 @@ def join(server_address):
 
 
     # every time tick send our data to the server
-    while True:
-        msg = game.data_to_send()
-        if msg == "End":
-            break
-        s.send(msg.encode())
+    # this went to broadcast func as pygame needs to be run here
+    server_sender = threading.Thread(target=broadcast_to_server, args=(s,))
+    server_sender.daemon = True
+    server_sender.start()
+
+    # game_started = threading.Event()
+    # game_started.clear()
+
+
+
+
+    # Now run the configured game
+    game.run()
+
+
 
     # Game Over :(
     s.close()
@@ -280,27 +329,30 @@ def host():
     '''
     Host a server for others to join
     '''
-    # Run our game
-    game_thread = threading.Thread(target=game_box)
-    game_thread.daemon = True
-    game_thread.start()
+    print("[MULTIPLAYER]:HOSTING")
 
-    # Now start Listening
-    listening = threading.Event()
-    listening.set()
 
-    listener_thread = threading.Thread(target=listen_for_clients, args=(listening,))
+    # # Start Listening
+    # listening = threading.Event()
+    # listening.set()
+    
+
+    listener_thread = threading.Thread(target=listen_for_clients)
     listener_thread.daemon = True
     listener_thread.start()
+    print("[MULTIPLAYER]:Started Listening")
 
-    # Simple stop hosting system
-    input()
-    listening.clear()
+
+    # Run our game
+    game.run()
+
+    # # Simple stop hosting system
+    # input()
+    # listening.clear()
 
 
 
 if __name__ == "__main__":
     
-    game_thread = threading.Thread(target=game_box)
-    game_thread.daemon = True
-    game_thread.start()
+    # host()
+    # join("192.168.0.70")

@@ -1,25 +1,69 @@
 import pygame
 import math
+import random
+
+from socket import gethostbyname, gethostname # To name myself
+
+
+# Classes
 
 
 class cell:
-    def __init__(self, world, world_xy, pos=(0, 0), colour=(0, 0, 0), starting_mass=50):
-        self.pos = [pos[0], pos[1]]
+    def __init__(self, world, world_dimensions, pos=(0, 0), colour=(0, 0, 0), starting_mass=50):
+        self.pos = list(pos)
         self.colour = colour
         self.mass = starting_mass
         self.radius = starting_mass
         self.world_surface = world
-        self.world_geometry = world_xy
+        self.world_geometry = world_dimensions
 
         self.speed = 10 # for testing - will be a function later
+
+
+    def __str__(self):
+        '''
+        Return a string from which this blob can be recreated
+        '''
+        out = {}
+
+        out["pos"] = self.pos
+        out["colour"] = self.colour
+        out["mass"] = self.mass
+        
+        return str(out)
+
+
+    def config(self, new_data):
+        '''
+        Configure a blob's attributes based on a dict provided by the above
+        '''
+        new_data = new_data
+
+        self.pos = new_data["pos"]
+        self.colour = new_data["colour"]
+        self.mass = new_data["mass"]
 
 
     def display(self):
         pygame.draw.circle(self.world_surface, self.colour, self.pos, self.radius, self.radius)
 
+    
+    def move(self, new_pos):
+        '''
+        Update blob's coordinates to a new location
+        Takes an array like (x,y) of coords
+        '''
+        self.pos = list(new_pos)
 
 
+    def update_mass(self, mass):
+        '''
+        Update our mass and adjust speed as necessary
+        '''
+        self.mass = mass
+        # TODO adjust speed
 
+    
 
 class player_cell(cell):
     def __init__(self, display_xy, *args):
@@ -73,7 +117,6 @@ class player_cell(cell):
         self.wall_detect()
 
 
-
     def key_move(self):
 
         ##  Move with keyboard
@@ -119,8 +162,6 @@ class player_cell(cell):
             self.camera_pos[1] = - self.world_geometry[1] + self.display_geometry[1] // 2
 
 
-
-
     def translate(self, new_pos):
         '''
         simple quick translation for testing
@@ -131,81 +172,231 @@ class player_cell(cell):
         self.camera_pos[1] -= new_pos[1]
 
 
-def Main():
+class game:
 
-    ##  Key Variables
-    pygame.init()
+    def __init__(self):
+                
+        # Variables
 
-    DISPLAY_WIDTH = 1280
-    DISPLAY_HEIGHT = 720
-    DISPLAY_GEOMETRY = (DISPLAY_WIDTH, DISPLAY_HEIGHT)
-    UPS = 60    # updates per second
+        DISPLAY_WIDTH = 1280
+        DISPLAY_HEIGHT = 720
+        self.DISPLAY_GEOMETRY = (DISPLAY_WIDTH, DISPLAY_HEIGHT)
+        self.UPS = 50    # updates per second
 
-    WORLD_WIDTH = 1000
-    WORLD_HEIGHT = 1000
-    WORLD_GEOMETRY = (WORLD_WIDTH, WORLD_HEIGHT)
+        self.MY_ID = str(gethostbyname(gethostname()))
 
+        
 
-    ##  Mouse Mode toggle will be in menu or something later
-    mouse_mode = True
+        self.parameters = {
+            "world_width"   : 1000,
+            "world_height"  : 1000,
+            "mouse_mode"    : False,
+            "player_colour" : "#4ef35a",
+            "player_name"   : "Jad",
+            "random_seed"   : random.randint(0, 10000),
+            "rnd_count"     : 0
+        }
 
-
-
-    ##  configure display and pygame settings
-    game_display = pygame.display.set_mode(DISPLAY_GEOMETRY)
-    game_display.fill((250, 250, 250))
-
-    pygame.display.set_caption("Jario")
-
-
-    clock = pygame.time.Clock()
-
-
-    ##  Creating things!
+        WORLD_WIDTH = self.parameters["world_width"]
+        WORLD_HEIGHT = self.parameters["world_height"]
+        self.WORLD_GEOMETRY = (WORLD_WIDTH, WORLD_HEIGHT)
 
 
-    # Create world
+        # Create world
 
-    game_map = pygame.Surface(WORLD_GEOMETRY)
+        self.game_map = pygame.Surface(self.WORLD_GEOMETRY)
 
 
-    # Create PLayer
-    player_colour = (155, 0, 0)
-    player_centre = (0, 0) #(- WORLD_WIDTH // 2, - WORLD_HEIGHT // 2)
 
-    player = player_cell(DISPLAY_GEOMETRY, game_map, WORLD_GEOMETRY, player_centre, player_colour)
+        self.blobs = {}
 
-    if mouse_mode:
-        player.set_mouse_mode()
+        print("[GAME]:Created game instance")
 
-    # player.translate((1000, 100))
 
-    alive = True
+    def configure_game(self, config_pack):
+        '''
+        Configure the game's setup to match a multiplayer server / customise the game
+        config_pack is blobs -> dot_list -> parameters
 
-    while alive:
-        # remove previous instances of everything
+        blobs come in a string of a dictionary
+        dots come as list
+        parameters come as a dictionary
+        '''
+        new_blobs, dot_list, new_parameters = config_pack
+
+        # Create new blobs:
+        # new blobs is like "ip_address:{keys:info}," repeated arbitrarily
+
+        while len(new_blobs) >= 3: # there wont be more than 3 commas or spaces at the end
+            name, new_blobs = new_blobs[:new_blobs.index(":")], new_blobs[new_blobs.index(":")+1:]
+            info, new_blobs = new_blobs[:new_blobs.index("}")+1], new_blobs[new_blobs.index("}")+1:]
+
+            self.blobs[name] = cell(self.game_map, self.WORLD_GEOMETRY)
+            self.blobs[name].config(eval(info)) # sometimes eval gives dodgy results but data is consistent enough here
+
+
+        # Add dots
+        # TODO spawn dots
+        dot_list = dot_list
+
+
+        # Merge sets of parameters
+        self.parameters = self.parameters | eval(new_parameters)
+
+        print("[GAME]:Game Configured")
+
+
+    def create_blob(self, controller, controller_type="networked"):
+        '''
+        Create a blob of a given type and designate its controller
+        '''
+        self.blobs[controller] = cell(self.game_map, self.WORLD_GEOMETRY)
+        print(f"[GAME]:Created Blob ID:{controller}")
+
+
+    def info_for_new(self):
+        '''
+        Return array of info to send to a new player
+        I.E. Parameters dictionary and blobs and stuff
+        blobs -> dot_list -> parameters
+
+        blobs come in a dictionary of name: blob string
+        dots come as list
+        parameters come as a dictionary
+        '''
+
+        # first part is dictionary of blobs and strings to recreate them
+        blobs_out = "" #"{"
+        for i in self.blobs:
+            blobs_out += f"{i}:{str(self.blobs[i])},"
+        # blobs_out += "}"
+
+
+        # now append the dot_list
+        # TODO
+        dots_out = "wee"
+
+
+        # now add parameters
+        params_out = str(self.parameters)
+
+        out = [blobs_out, dots_out, params_out]
+
+        print(f"[GAME]:Generated new intro packet")
+
+        return out
+
+
+    def data_to_send(self):
+        '''
+        Generate data to send to the server when we update something
+        Data is new mass of player blob, and location
+        '''
+        out = f"{self.MY_ID},{self.blobs[self.MY_ID].mass},"    # our name, our mass
+        out += f"{self.blobs[self.MY_ID].pos[0]},{self.blobs[self.MY_ID].pos[1]}" # our x, our y
+
+        return out
+
+
+    def process_player_move(self, data):
+        '''
+        Process an update for movement of a player blob
+        I.E. receiving end of data sent via above method
+        '''
+        # Transform data
+        blob, mass, pos_x, pos_y = data.split(",")
+        pos = (int(pos_x), int(pos_y))
+        mass = int(mass)
+
+        # Use data to relocate blob
+        self.blobs[blob].update_mass(mass)
+        self.blobs[blob].move(pos)
+
+
+    def run(self):
+        '''
+        Run the game
+        '''
+        ##  Key Variables
+        pygame.init()
+
+        print("[GAME]:Game Run?")
+
+        
+        WORLD_WIDTH = self.parameters["world_width"]
+        WORLD_HEIGHT = self.parameters["world_height"]
+        self.WORLD_GEOMETRY = (WORLD_WIDTH, WORLD_HEIGHT)
+
+
+
+        ##  configure display and pygame settings
+        game_display = pygame.display.set_mode(self.DISPLAY_GEOMETRY)
         game_display.fill((250, 250, 250))
-        game_map.fill((0, 0, 0))
 
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                alive = False
+        pygame.display.set_caption("Jario")
 
 
-            print(event)
+        clock = pygame.time.Clock()
 
 
-        # Move things
-        player.move()
+        ##  Creating things!
 
-        # display things
-        player.display()
 
-        # Update screen
-        game_display.blit(game_map, player.camera_pos) # transfer game view to display
-        pygame.display.update()
+        # Create world
 
-        clock.tick(UPS)
+        self.game_map = pygame.Surface(self.WORLD_GEOMETRY)
+
+
+        # Create PLayer
+        player_colour = self.parameters["player_colour"]
+        player_centre = (0, 0) #(- WORLD_WIDTH // 2, - WORLD_HEIGHT // 2)
+
+
+        player = player_cell(self.DISPLAY_GEOMETRY, self.game_map, self.WORLD_GEOMETRY, player_centre, player_colour)
+
+        ##  Mouse Mode toggle will be in menu or something later
+        mouse_mode = self.parameters["mouse_mode"]
+
+        if mouse_mode:
+            player.set_mouse_mode()
+
+        # player.translate((1000, 100))
+
+        self.blobs[self.MY_ID] = player
+        print(f"[GAME]:Player {self.MY_ID} Created")
+        print(f"[GAME]:BLOBS LIST:{self.blobs}")
+
+
+        alive = True
+
+        while alive:
+            # remove previous instances of everything
+            game_display.fill((250, 250, 250))
+            self.game_map.fill((0, 0, 0))
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    alive = False
+
+
+                # print(f"[GAME]:{event}")
+
+
+            # Move things
+            player.move()
+
+            # display things
+            for i in self.blobs:
+                self.blobs[i].display()
+
+            # Update screen
+            game_display.blit(self.game_map, player.camera_pos) # transfer game view to display
+            pygame.display.update()
+
+            clock.tick(self.UPS)
 
 if __name__ == "__main__":
-    Main()
+
+    print("[GAME]:MAIN")
+
+    game().run()

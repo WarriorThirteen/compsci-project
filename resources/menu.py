@@ -432,7 +432,7 @@ class menus:
         '''
         self.player_colour = tkcc.askcolor()[1]
         self.colour_input.configure(bg=self.player_colour)
-        # print(colour)
+        print(self.player_colour)
 
 
 
