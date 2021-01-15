@@ -63,9 +63,6 @@ class test_game:
     
 
 
-
-game = gm.game()
-
 import socket
 import threading
 import time
@@ -96,16 +93,20 @@ PORT = 5001
 # Set of connected client sockets for sending data in server mode
 # and connected addresses to send to new clients and record who we expect info about
 connected_client_sockets = set()
-connected_addresses = set()
 
 
 # Control / Configuration variables
 MAX_CONNECTIONS = 5
-DELAY_BETWEEN_SEND = 0.1
+
+# Create flag to start and stop sending and receiving etc.
+# This will be referenced via the game attribute so flag is sufficient a name
+flag = threading.Event()
+flag.clear()
+
+game = gm.game(flag)
 
 
-
-##  GENERATE DATA PACKET FUNCTION
+##  For Hosting
 
 
 def gen_intro_packet():
@@ -113,16 +114,20 @@ def gen_intro_packet():
     Generate and return a packet for new players.
     This packet should contain the randomness seed, current random_count, connected player addresses, and the dot location list.
     '''
+    # Wait until game has started
+    game.running_flag.wait()
+
+    # Now provide details
     packet = SEPERATOR.join(game.info_for_new())
 
     return packet
-
 
 
 # Thread to run game
 
 # def game_box():
 #     game.run()  ## PYGAME IS NOT THREAD SAFE
+
 
 
 # Listen for new people
@@ -139,13 +144,13 @@ def listen_for_clients():
 
     s_listener.listen(5)
 
-    while True:
+
+    game.running_flag.wait()
+
+    while game.running_flag.isSet():
         # Accept incoming connections
         new_socket, address = s_listener.accept()
 
-        # Add new client to list of client sockets
-        connected_client_sockets.add(new_socket)
-        connected_addresses.add(address)
 
         # Start listening to client for new info
         new_thread = threading.Thread(target=client_connector, args=(address[0], new_socket,))
@@ -170,7 +175,16 @@ def client_connector(client_address, client_socket):
     '''
     
     # Step one send new client game data:
+    # This will only return after the game has begun
     client_socket.send(gen_intro_packet().encode())
+
+    # Client is currently connected
+    connected = True
+
+
+    # Add new client to list of client sockets
+    # We add them to the set here, so we don't send them data before they have configured their game
+    connected_client_sockets.add(client_socket)
 
 
     # Generate this player a blob:
@@ -183,31 +197,70 @@ def client_connector(client_address, client_socket):
             client.send(msg.encode())
 
 
+
     # Now we do a loop of receiving and resending:
-    while True:
+    while game.running_flag.isSet() and connected:
         # Listen for message
         msg_list = client_socket.recv(BUFFER_SIZE).decode().split(EOM_TOKEN)
 
-        # When we receive a message, send back our data:
-        client_socket.send()
 
         for msg in msg_list:
+            # We may have received a blank message
+            if msg:
 
-            # Player is leaving the game
-            if msg == disconnecting_message:
-                game.disconnect_blob(client_address)
+                # Player is leaving the game
+                if msg == disconnecting_message:
+                    game.disconnect_blob(client_address)
+                    connected_client_sockets.remove(client_socket)
 
-                # tell other players this player has left:
-                msg = disconnecting_message + SEPERATOR + client_address
+                    # tell other players this player has left:
+                    msg = disconnecting_message + SEPERATOR + client_address + EOM_TOKEN
 
-            # Process message for our game
-            process_game_info(msg.removesuffix(EOM_TOKEN))
+                    connected == False
 
-            # Resend message to our other clients:
+                    break
+
+                # Process message for our game
+                process_game_info(msg.removesuffix(EOM_TOKEN))
+
+                # Resend message to our other clients:
+                for client in connected_client_sockets:
+                    if client != client_socket:          # don't send message back to sender
+                        client.send(msg.encode())
+
+
+
+# We need a seperate thread for sending out our own data.
+# This way we can stop and handle our own issues properly
+# in the same way clients can i.e. closing the game etc.
+
+def broadcast_from_server():
+    '''
+    Every few milliseconds, send our data to our clients.
+    This happens in a thread to handle exceptional circumstances such as when
+    the host closes the game.
+    '''
+    # time.sleep(3) # So we don't start sending data before game starts
+    game.running_flag.wait()
+
+    while game.running_flag.isSet():
+        msg = game.data_to_send() + EOM_TOKEN
+
+        try:
             for client in connected_client_sockets:
-                if client != client_socket:          # don't send message back to sender
-                    client.send(msg.encode())
+                client.send(msg.encode())
 
+        except RuntimeError: # Client was removed from list while we were iterating through
+            pass
+
+        time.sleep(1 / game.UPS)
+
+    # TODO end game without crash, Maybe designate new host?
+    print("[MULTIPLAYER]:Broadcast stopped")
+
+
+
+##  For connecting to a Host
 
     
 def connect_to_server(server_address):
@@ -224,7 +277,7 @@ def connect_to_server(server_address):
     intro_packet = s.recv(BUFFER_SIZE).decode().split(SEPERATOR)
 
     # Configure game with welcome packet
-    game.configure_game(intro_packet) # TODO
+    game.configure_game(intro_packet)
 
     return s
 
@@ -234,23 +287,26 @@ def listen_to_server(s):
     Listen to the server for messages
     and take appropriate action
     '''
-    while True:
+    game.running_flag.wait()
+    while game.running_flag.isSet():
         msg_list = s.recv(BUFFER_SIZE).decode().split(EOM_TOKEN)    # Prevent multiple messages conjoining in a buffer
 
         for msg in msg_list:
-            msg = msg.split(SEPERATOR)
-            if msg[0] == new_connection_message:
-                # A new player has connected
-                # so make them a blob in our game
-                game.create_blob(msg[1], "networked")
+            # In case we receive a blank message
+            if msg:
 
-            elif msg[0] == disconnecting_message:
-                # A player has disconnected
-                game.disconnect_blob(msg[1])
+                if msg[0] == new_connection_message:
+                    # A new player has connected
+                    # so make them a blob in our game
+                    game.create_blob(msg[1], "networked")
 
-            else:
-                # Message is game info
-                process_game_info(msg[0].removesuffix(EOM_TOKEN))
+                elif msg[0] == disconnecting_message:
+                    # A player has disconnected
+                    game.disconnect_blob(msg.split(SEPERATOR)[1])
+
+                else:
+                    # Message is game info
+                    process_game_info(msg.removesuffix(EOM_TOKEN))
 
 
 
@@ -259,26 +315,29 @@ def broadcast_to_server(s):
     Every few milliseconds, send our data to the server.
     This happens here as pygame is not thread safe
     '''
-    time.sleep(1) # So we don't start sending data before game starts
+    # time.sleep(1) # So we don't start sending data before game starts
+    game.running_flag.wait()
 
-    while True:
+    while game.running_flag.isSet():
         msg = game.data_to_send() + EOM_TOKEN
-        if msg == "End":         # TODO end game without crash
-            break
         s.send(msg.encode())
         time.sleep(1 / game.UPS)
 
+    s.send(disconnecting_message.encode())
 
+
+
+
+
+# UTILITY
 
 # Use info we receive about game actions
 def process_game_info(message):
     '''
     Process received game data into gameplay
     '''
-    if message:
-        game.process_player_move(message)
+    game.process_player_move(message)
     
-
 
 
 
@@ -288,11 +347,11 @@ def join(server_address):
     '''
     Connect to and play with people on a server
     '''
+
     print("[MULTIPLAYER]:JOINING")
 
     # Generate socket connected to server and configure game
     s = connect_to_server(server_address)
-
 
 
 
@@ -308,16 +367,14 @@ def join(server_address):
     server_sender.daemon = True
     server_sender.start()
 
-    # game_started = threading.Event()
-    # game_started.clear()
-
-
 
 
     # Now run the configured game
     game.run()
 
 
+    # Give disconnnect message a chance
+    time.sleep(0.5)
 
     # Game Over :(
     s.close()
@@ -329,18 +386,26 @@ def host():
     '''
     Host a server for others to join
     '''
+
     print("[MULTIPLAYER]:HOSTING")
 
+    # Start Listening
 
-    # # Start Listening
     # listening = threading.Event()
     # listening.set()
     
-
     listener_thread = threading.Thread(target=listen_for_clients)
     listener_thread.daemon = True
     listener_thread.start()
     print("[MULTIPLAYER]:Started Listening")
+
+
+    # Setup to send our data to our clients
+
+    sender_thread = threading.Thread(target=broadcast_from_server)
+    sender_thread.daemon = True
+    sender_thread.start()
+    print("[MULTIPLAYER]:Beginning to broadcast game data")
 
 
     # Run our game
@@ -354,5 +419,5 @@ def host():
 
 if __name__ == "__main__":
     
-    # host()
+    host()
     # join("192.168.0.70")

@@ -9,7 +9,7 @@ from socket import gethostbyname, gethostname # To name myself
 
 
 class cell:
-    def __init__(self, world, world_dimensions, pos=(0, 0), colour=(0, 0, 0), starting_mass=50):
+    def __init__(self, world, world_dimensions, pos=(0, 0), colour=(255, 0, 0), starting_mass=50):
         self.pos = list(pos)
         self.colour = colour
         self.mass = starting_mass
@@ -174,7 +174,12 @@ class player_cell(cell):
 
 class game:
 
-    def __init__(self):
+    def __init__(self, run_flag=None):
+        '''
+        Create a game instance
+        Allows for an optional running flag to be provided
+        which should be a threading.event object
+        '''
                 
         # Variables
 
@@ -206,11 +211,17 @@ class game:
 
         self.game_map = pygame.Surface(self.WORLD_GEOMETRY)
 
-
-
         self.blobs = {}
 
         print("[GAME]:Created game instance")
+
+        if run_flag:
+            self.running_flag = run_flag
+            print("[GAME]:Run flag provided")
+
+        else:
+            self.running_flag = None
+
 
 
     def configure_game(self, config_pack):
@@ -253,6 +264,13 @@ class game:
         self.blobs[controller] = cell(self.game_map, self.WORLD_GEOMETRY)
         print(f"[GAME]:Created Blob ID:{controller}")
 
+    
+    def disconnect_blob(self, controller):
+        '''
+        Delete a designated blob from the game
+        '''
+        del self.blobs[controller]
+
 
     def info_for_new(self):
         '''
@@ -265,7 +283,7 @@ class game:
         parameters come as a dictionary
         '''
 
-        # first part is dictionary of blobs and strings to recreate them
+        # first part is our blobs and a string to recreate them
         blobs_out = "" #"{"
         for i in self.blobs:
             blobs_out += f"{i}:{str(self.blobs[i])},"
@@ -313,6 +331,14 @@ class game:
         self.blobs[blob].move(pos)
 
 
+    def is_running(self):
+        '''
+        Return True if the game is in its main loop
+        Otherwise returns false
+        '''
+        return self.running_flag.isSet()
+
+
     def run(self):
         '''
         Run the game
@@ -342,10 +368,6 @@ class game:
         ##  Creating things!
 
 
-        # Create world
-
-        self.game_map = pygame.Surface(self.WORLD_GEOMETRY)
-
 
         # Create PLayer
         player_colour = self.parameters["player_colour"]
@@ -368,6 +390,8 @@ class game:
 
 
         alive = True
+        if self.running_flag != None:
+            self.running_flag.set()
 
         while alive:
             # remove previous instances of everything
@@ -376,7 +400,11 @@ class game:
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
+                    print("[GAME]:Game Quit")
                     alive = False
+
+                    if self.running_flag != None:
+                        self.running_flag.clear()
 
 
                 # print(f"[GAME]:{event}")
@@ -395,8 +423,10 @@ class game:
 
             clock.tick(self.UPS)
 
+        pygame.quit()
+
 if __name__ == "__main__":
 
     print("[GAME]:MAIN")
-
-    game().run()
+    a = game()
+    a.run()
