@@ -65,7 +65,7 @@ class menus:
         self.WINDOW_HEIGHT = 720     # reasons mentioned in design
 
 
-        self.WINDOW_BACKGROUND = "#FFF8C0"   # Gray chosen in documentation
+        self.WINDOW_BACKGROUND = "#FFF8C0" # New Yellow pand background
 
 
         self.FONT_FAMILY = "Small Fonts"  # Switch to pixel graphics if time allows
@@ -253,7 +253,7 @@ class menus:
 
             # Configure game
 
-            tk.Label(join_options, text="Configure Game", font=self.std_font).grid(row=0, columnspan=2, sticky="nsew")
+            tk.Label(join_options, text="Configure Game. PLACEHOLDER OPTIONS", wrap=200, font=self.std_font).grid(row=0, columnspan=2, sticky="nsew")
 
 
             # difficulty
@@ -381,7 +381,7 @@ class menus:
             sp_advanced_options.place(relx=0.8, rely=0.3, relwidth=0.2, relheight=0.4, anchor="ne")
 
 
-            tk.Label(sp_advanced_options, text="Please select custom difficulty for these settings to take effect", wrap=200, font=self.std_font).grid(row=0, column=0, columnspan=2, sticky="nsew")
+            tk.Label(sp_advanced_options, text="Please select custom difficulty for these settings to take effect. PLACEHOLDER OPTIONS", wrap=200, font=self.std_font).grid(row=0, column=0, columnspan=2, sticky="nsew")
             advanced_options_count += 1
 
             # advanced option widgets go here

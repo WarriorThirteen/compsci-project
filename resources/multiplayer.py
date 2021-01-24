@@ -73,8 +73,8 @@ from datetime import datetime
 ##  Then access attributes and send them to connected people
 
 
-# seperator token to divide parts of message and buffer is how large each message is.
-SEPERATOR = "<seperator>"
+# SEPARATOR token to divide parts of message and buffer is how large each message is.
+SEPARATOR = "<SEPARATOR>"
 EOM_TOKEN = "<end>"
 BUFFER_SIZE = 4096
 
@@ -118,7 +118,7 @@ def gen_intro_packet():
     game.running_flag.wait()
 
     # Now provide details
-    packet = SEPERATOR.join(game.info_for_new())
+    packet = SEPARATOR.join(game.info_for_new())
 
     return packet
 
@@ -150,7 +150,6 @@ def listen_for_clients():
     while game.running_flag.isSet():
         # Accept incoming connections
         new_socket, address = s_listener.accept()
-
 
         # Start listening to client for new info
         new_thread = threading.Thread(target=client_connector, args=(address[0], new_socket,))
@@ -191,7 +190,7 @@ def client_connector(client_address, client_socket):
     game.create_blob(client_address, "networked")
 
     # Tell clients a new player has joined:
-    msg = SEPERATOR.join((new_connection_message, client_address))
+    msg = SEPARATOR.join((new_connection_message, client_address))
     for client in connected_client_sockets:
         if client != client_socket:
             client.send(msg.encode())
@@ -214,7 +213,9 @@ def client_connector(client_address, client_socket):
                     connected_client_sockets.remove(client_socket)
 
                     # tell other players this player has left:
-                    msg = disconnecting_message + SEPERATOR + client_address + EOM_TOKEN
+                    msg = disconnecting_message + SEPARATOR + client_address + EOM_TOKEN
+                    for client in connected_client_sockets:
+                        client.send(msg.encode())
 
                     connected == False
 
@@ -274,7 +275,7 @@ def connect_to_server(server_address):
     s.connect((server_address, PORT))
 
     # Receive data until end of welcome packet:
-    intro_packet = s.recv(BUFFER_SIZE).decode().split(SEPERATOR)
+    intro_packet = s.recv(BUFFER_SIZE).decode().split(SEPARATOR)
 
     # Configure game with welcome packet
     game.configure_game(intro_packet)
@@ -302,7 +303,7 @@ def listen_to_server(s):
 
                 elif msg[0] == disconnecting_message:
                     # A player has disconnected
-                    game.disconnect_blob(msg.split(SEPERATOR)[1])
+                    game.disconnect_blob(msg.split(SEPARATOR)[1])
 
                 else:
                     # Message is game info
@@ -411,9 +412,6 @@ def host():
     # Run our game
     game.run()
 
-    # # Simple stop hosting system
-    # input()
-    # listening.clear()
 
 
 
