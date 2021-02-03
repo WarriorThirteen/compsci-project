@@ -5,19 +5,24 @@ import random
 from socket import gethostbyname, gethostname # To name myself
 
 
+
 # Classes
 
 
 class cell:
-    def __init__(self, world, world_dimensions, pos=(0, 0), colour=(255, 0, 0), starting_mass=50):
+    def __init__(self, world, world_dimensions, pos=(0, 0), colour=(255, 0, 0), starting_mass=500):
         self.pos = list(pos)
         self.colour = colour
         self.mass = starting_mass
-        self.radius = starting_mass
+
+        self.radius = 10
+        self.update_rad()
+
         self.world_surface = world
         self.world_geometry = world_dimensions
 
         self.speed = 10 # for testing - will be a function later
+        self.update_speed()
 
 
     def __str__(self):
@@ -35,13 +40,12 @@ class cell:
 
     def config(self, new_data):
         '''
-        Configure a blob's attributes based on a dict provided by the above
+        Configure a blob's attributes based on a dict provided
         '''
-        new_data = new_data
 
         self.pos = new_data["pos"]
         self.colour = new_data["colour"]
-        self.mass = new_data["mass"]
+        self.set_mass(new_data["mass"])
 
 
     def display(self):
@@ -56,14 +60,49 @@ class cell:
         self.pos = list(new_pos)
 
 
-    def update_mass(self, mass):
+    def update_rad(self):
         '''
-        Update our mass and adjust speed as necessary
+        Update our radius to what it should be based on our mass
+        '''
+        self.radius = 2 * int(math.sqrt(self.mass / math.pi))
+
+
+    def update_speed(self):
+        '''
+        Update our speed based on our mass
+        '''
+        k = 0.5
+
+        # self.speed = k * 2000 / self.mass
+        # self.speed = k / math.sin(math.degrees(self.mass))
+        self.speed = -k * math.log(self.mass) + 10  # * <--- I like this one
+
+        #print(self.speed)
+
+
+    def set_mass(self, mass):
+        '''
+        Set our mass to a given value and adjust speed as necessary
         '''
         self.mass = mass
+        self.update_rad()
         # TODO adjust speed
+        self.update_speed()
 
     
+    def add_mass(self, mass):
+        '''
+        Add to our mass a given value and adjust speed as necessary
+        '''
+        if self.mass + mass <= 0:
+            return
+
+        self.mass += mass
+        self.update_rad()
+        # TODO adjust speed
+        self.update_speed()
+
+
 
 class player_cell(cell):
     def __init__(self, display_xy, *args):
@@ -180,7 +219,7 @@ class game:
         Allows for an optional running flag to be provided
         which should be a threading.event object
         '''
-                
+
         # Variables
 
         DISPLAY_WIDTH = 1280
@@ -240,9 +279,9 @@ class game:
 
         while len(new_blobs) >= 3: # there wont be more than 3 commas or spaces at the end
             name, new_blobs = new_blobs[:new_blobs.index(":")], new_blobs[new_blobs.index(":")+1:]
-            info, new_blobs = new_blobs[:new_blobs.index("}")+1], new_blobs[new_blobs.index("}")+1:]
+            info, new_blobs = new_blobs[:new_blobs.index("}")+1], new_blobs[new_blobs.index("}")+1:] # These come in the blob description
 
-            self.blobs[name] = cell(self.game_map, self.WORLD_GEOMETRY)
+            self.create_blob(name)
             self.blobs[name].config(eval(info)) # sometimes eval gives dodgy results but data is consistent enough here
 
 
@@ -296,7 +335,11 @@ class game:
 
 
         # now add parameters
-        params_out = str(self.parameters)
+        # These are the parameters we need to share with new player
+        mp_params = ("world_width", "world_height", "random_seed", "rnd_count")
+
+        params_out = {i:self.parameters[i] for i in mp_params}
+        params_out = str(params_out)
 
         out = [blobs_out, dots_out, params_out]
 
@@ -327,16 +370,8 @@ class game:
         mass = int(mass)
 
         # Use data to relocate blob
-        self.blobs[blob].update_mass(mass)
+        self.blobs[blob].set_mass(mass)
         self.blobs[blob].move(pos)
-
-
-    def is_running(self):
-        '''
-        Return True if the game is in its main loop
-        Otherwise returns false
-        '''
-        return self.running_flag.isSet()
 
 
     def run(self):
@@ -348,7 +383,7 @@ class game:
 
         print("[GAME]:Game Run?")
 
-        
+
         WORLD_WIDTH = self.parameters["world_width"]
         WORLD_HEIGHT = self.parameters["world_height"]
         self.WORLD_GEOMETRY = (WORLD_WIDTH, WORLD_HEIGHT)
@@ -382,7 +417,7 @@ class game:
         if mouse_mode:
             player.set_mouse_mode()
 
-        # player.translate((1000, 100))
+
 
         self.blobs[self.MY_ID] = player
         print(f"[GAME]:Player {self.MY_ID} Created")
@@ -408,6 +443,21 @@ class game:
 
 
                 # print(f"[GAME]:{event}")
+
+
+
+
+            # * Debugging
+            pressed_keys = pygame.key.get_pressed()
+
+            if pressed_keys[pygame.K_UP]:
+                player.add_mass(10)
+
+            if pressed_keys[pygame.K_DOWN]:
+                player.add_mass(-10)
+
+
+
 
 
             # Move things

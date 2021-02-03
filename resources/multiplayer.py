@@ -28,7 +28,7 @@ class test_game:
         Configure the game setup to mimic someone else's game.
         '''
         pass
-    
+
 
     def create_blob(self, identity, controller):
         self.blobs[identity] = "blob"
@@ -60,7 +60,7 @@ class test_game:
         Disconnect a networked blob controller and delete their blob
         '''
         del self.blobs[identity]
-    
+
 
 
 import socket
@@ -225,10 +225,15 @@ def client_connector(client_address, client_socket):
                 process_game_info(msg.removesuffix(EOM_TOKEN))
 
                 # Resend message to our other clients:
-                for client in connected_client_sockets:
-                    if client != client_socket:          # don't send message back to sender
-                        client.send(msg.encode())
+                while True:         # if message is disconnecting message, it is important that it is sent
+                    try:
+                        for client in connected_client_sockets:
+                            if client != client_socket:          # don't send message back to sender
+                                client.send(msg.encode())
+                        break
 
+                    except RuntimeError: # a different client disconnected while sending
+                        pass
 
 
 # We need a seperate thread for sending out our own data.
@@ -263,11 +268,11 @@ def broadcast_from_server():
 
 ##  For connecting to a Host
 
-    
+
 def connect_to_server(server_address):
     '''
     Create a socket and connect to a server with a provided address.
-    Receive info packet from server.
+    Receive info packet from server and configure game appropriately.
     '''
 
     # connect to server
@@ -338,7 +343,6 @@ def process_game_info(message):
     Process received game data into gameplay
     '''
     game.process_player_move(message)
-    
 
 
 
@@ -355,7 +359,6 @@ def join(server_address):
     s = connect_to_server(server_address)
 
 
-
     # Setup thread to continuously listen to server for updates
     server_listener = threading.Thread(target=listen_to_server, args=(s,))
     server_listener.daemon = True
@@ -367,7 +370,6 @@ def join(server_address):
     server_sender = threading.Thread(target=broadcast_to_server, args=(s,))
     server_sender.daemon = True
     server_sender.start()
-
 
 
     # Now run the configured game
@@ -394,7 +396,7 @@ def host():
 
     # listening = threading.Event()
     # listening.set()
-    
+
     listener_thread = threading.Thread(target=listen_for_clients)
     listener_thread.daemon = True
     listener_thread.start()
@@ -416,6 +418,6 @@ def host():
 
 
 if __name__ == "__main__":
-    
+
     host()
     # join("192.168.0.70")
