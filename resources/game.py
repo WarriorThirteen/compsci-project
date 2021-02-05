@@ -1,19 +1,22 @@
 import pygame
+import pygame_gui
 import math
 import random
+import threading
 
 from socket import gethostbyname, gethostname # To name myself
-
+from time import sleep
 
 
 # Classes
 
 
 class cell:
-    def __init__(self, world, world_dimensions, pos=(0, 0), colour=(255, 0, 0), starting_mass=500):
+    def __init__(self, world, world_dimensions, pos=(0, 0), colour=(255, 0, 0), starting_mass=500, ):
         self.pos = list(pos)
         self.colour = colour
         self.mass = starting_mass
+        self.name = "Unnamed"
 
         self.radius = 10
         self.update_rad()
@@ -46,6 +49,13 @@ class cell:
         self.pos = new_data["pos"]
         self.colour = new_data["colour"]
         self.set_mass(new_data["mass"])
+
+
+    def set_name(self, name):
+        '''
+        Set ourselves a name
+        '''
+        self.name = name
 
 
     def display(self):
@@ -86,7 +96,7 @@ class cell:
         '''
         self.mass = mass
         self.update_rad()
-        # TODO adjust speed
+
         self.update_speed()
 
     
@@ -99,7 +109,6 @@ class cell:
 
         self.mass += mass
         self.update_rad()
-        # TODO adjust speed
         self.update_speed()
 
 
@@ -107,6 +116,7 @@ class cell:
 class player_cell(cell):
     def __init__(self, display_xy, *args):
         super().__init__(*args)
+        self.peak_mass = self.mass
         self.d_x = 0
         self.d_y = 0
         self.display_geometry = display_xy
@@ -210,14 +220,27 @@ class player_cell(cell):
         self.camera_pos[0] -= new_pos[0]
         self.camera_pos[1] -= new_pos[1]
 
+    def add_mass(self, mass):
+        '''
+        Add to our mass a given value and adjust speed as necessary
+        Polymorphed here to allow tracking of peak mass
+        '''
+        if self.mass + mass <= 0:
+            return
+
+        self.mass += mass
+        self.update_rad()
+        self.update_speed()
+
+        if self.mass > self.peak_mass:
+            self.peak_mass = self.mass
+
 
 class game:
 
-    def __init__(self, run_flag=None):
+    def __init__(self):
         '''
         Create a game instance
-        Allows for an optional running flag to be provided
-        which should be a threading.event object
         '''
 
         # Variables
@@ -228,6 +251,7 @@ class game:
         self.UPS = 50    # updates per second
 
         self.sectors_configured = False
+        self.is_multiplayer = False
 
         self.MY_ID = str(gethostbyname(gethostname()))
 
@@ -261,12 +285,9 @@ class game:
 
         print("[GAME]:Created game instance")
 
-        if run_flag:
-            self.running_flag = run_flag
-            print("[GAME]:Run flag provided")
 
-        else:
-            self.running_flag = None
+        self.running_flag = threading.Event()
+        self.running_flag.clear()
 
 
     def configure_game(self, config_pack):
@@ -306,6 +327,17 @@ class game:
         print("[GAME]:Game Configured")
 
 
+    def set_multiplayer(self):
+        '''
+        It is useful knowing whether we are a multiplayer game
+        '''
+        self.is_multiplayer = True
+
+        # Assume we are the host until told otherwise
+        self.host_name = self.MY_ID.split(".")[-1]
+        print("[GAME]:We are playing multiplayer")
+
+
     def configure_sectors(self):
         '''
         Establish the sector dictionary for the map.
@@ -339,7 +371,10 @@ class game:
             x = random.randint(0, self.parameters["world_width"])
             y = random.randint(0, self.parameters["world_height"])
 
-            self.place_dot((x, y))
+            # Generate a colour for this dot
+            colour = random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)
+
+            self.place_dot((x, y, colour))
 
 
         print(f"[GAME]:Spawned {count} dots")
@@ -407,7 +442,7 @@ class game:
 
 
                     # Eat the dot or display the dot?
-                    if math.dist((blob_x, blob_y), dot) < blob.radius:
+                    if math.dist((blob_x, blob_y), (dot[0], dot[1])) < blob.radius:
                         # We are close enough to eat the dot
                         blob.add_mass(self.parameters["dot_mass"])
                         del self.sectors[(x,y)][index]
@@ -476,6 +511,69 @@ class game:
         self.blobs[blob].move(pos)
 
 
+    def update_ui_elements(self):
+        '''
+        Periodically update UI elements
+        Threaded to improve performance as we have to delete and redraw elements every time
+        '''
+
+        self.running_flag.wait()
+
+        while self.running_flag.isSet():
+
+            # Keep player stats up to date
+            self.ui_player_stats.kill()
+            self.ui_player_stats = pygame_gui.elements.UITextBox(
+                relative_rect=pygame.Rect((int(self.DISPLAY_GEOMETRY[0] * 0.2), int(self.DISPLAY_GEOMETRY[1] * 0.8)), (int(self.DISPLAY_GEOMETRY[0] * 0.2), int(self.DISPLAY_GEOMETRY[1] * 0.15))),
+                html_text=f"Player stats:<br>Current Mass - {self.player.mass}<br>Peak Mass - {self.player.peak_mass}",
+                manager=self.ui_manager)
+
+
+            # Update Game overall stats
+
+            total_game_mass = sum([self.blobs[blob].mass for blob in self.blobs])
+            total_dot_mass = self.parameters["dot_mass"] * sum([len(self.sectors[sector]) for sector in self.sectors])
+
+            self.ui_game_stats.kill()
+            self.ui_game_stats = pygame_gui.elements.UITextBox(
+                relative_rect=pygame.Rect((int(self.DISPLAY_GEOMETRY[0] * 0.4), int(self.DISPLAY_GEOMETRY[1] * 0.8)), (int(self.DISPLAY_GEOMETRY[0] * 0.2), int(self.DISPLAY_GEOMETRY[1] * 0.15))),
+                html_text=f"Total Mass of Blobs - {total_game_mass}<br>Total Mass of Live Dots - {total_dot_mass}",
+                manager=self.ui_manager)
+
+        
+            # Create Leaderboard
+
+            blobs_with_masses = [f"{self.blobs[blob].mass} - {self.blobs[blob].name}" for blob in self.blobs]
+            blobs_with_masses.sort()
+
+            # We need 9 people on the board
+            while len(blobs_with_masses) < 9:
+                blobs_with_masses.append("None - None")
+            
+            leaderboard_text = "<br>".join(blobs_with_masses[:9])
+            self.ui_leaderboard.kill()
+            self.ui_leaderboard = pygame_gui.elements.UITextBox(
+                relative_rect=pygame.Rect((int(self.DISPLAY_GEOMETRY[0] * 0.8), int(self.DISPLAY_GEOMETRY[1] * 0.05)), (int(self.DISPLAY_GEOMETRY[0] * 0.15), int(self.DISPLAY_GEOMETRY[1] * 0.3))),
+                html_text=f"Leaderboard:<br>{leaderboard_text}",
+                manager=self.ui_manager)
+
+
+            if self.is_multiplayer:
+                # Display our multiplayer info
+                
+                self.ui_other_info.kill()
+                self.ui_other_info = pygame_gui.elements.UITextBox(
+                    relative_rect=pygame.Rect((int(self.DISPLAY_GEOMETRY[0] * 0.6), int(self.DISPLAY_GEOMETRY[1] * 0.8)), (int(self.DISPLAY_GEOMETRY[0] * 0.2), int(self.DISPLAY_GEOMETRY[1] * 0.15))),
+                    html_text=f"Code to connect - {self.host_name}<br>Player count - {len(self.blobs)}",
+                    manager=self.ui_manager)
+
+
+
+
+            # Sleep to give time for things to change
+            sleep(0.5)
+
+
     def run(self):
         '''
         Run the game
@@ -517,17 +615,17 @@ class game:
         player_centre = (0, 0) #(- WORLD_WIDTH // 2, - WORLD_HEIGHT // 2)
 
 
-        player = player_cell(self.DISPLAY_GEOMETRY, self.game_map, self.WORLD_GEOMETRY, player_centre, player_colour)
+        self.player = player_cell(self.DISPLAY_GEOMETRY, self.game_map, self.WORLD_GEOMETRY, player_centre, player_colour)
 
         ##  Mouse Mode toggle will be in menu or something later
         mouse_mode = self.parameters["mouse_mode"]
 
         if mouse_mode:
-            player.set_mouse_mode()
+            self.player.set_mouse_mode()
 
 
 
-        self.blobs[self.MY_ID] = player
+        self.blobs[self.MY_ID] = self.player
         print(f"[GAME]:Player {self.MY_ID} Created")
         print(f"[GAME]:BLOBS LIST:{self.blobs}")
 
@@ -537,23 +635,62 @@ class game:
             self.configure_sectors()
             self.spawn_dots(200)
 
+        # * Setup UI
+        # Create UI manager
+        self.ui_manager = pygame_gui.UIManager(self.DISPLAY_GEOMETRY)
 
-        alive = True
-        if self.running_flag != None:
-            self.running_flag.set()
+        # create UI pieces
+        self.ui_player_stats = pygame_gui.elements.UITextBox(
+            relative_rect=pygame.Rect((int(self.DISPLAY_GEOMETRY[0] * 0.2), int(self.DISPLAY_GEOMETRY[1] * 0.8)), (int(self.DISPLAY_GEOMETRY[0] * 0.2), int(self.DISPLAY_GEOMETRY[1] * 0.15))),
+            html_text="Loading Player Stats...",
+            manager=self.ui_manager)
 
-        while alive:
+        self.ui_game_stats = pygame_gui.elements.UITextBox(
+            relative_rect=pygame.Rect((int(self.DISPLAY_GEOMETRY[0] * 0.4), int(self.DISPLAY_GEOMETRY[1] * 0.8)), (int(self.DISPLAY_GEOMETRY[0] * 0.2), int(self.DISPLAY_GEOMETRY[1] * 0.15))),
+            html_text='Loading Game Stats...',
+            manager=self.ui_manager)
+
+        self.ui_other_info = pygame_gui.elements.UITextBox(
+            relative_rect=pygame.Rect((int(self.DISPLAY_GEOMETRY[0] * 0.6), int(self.DISPLAY_GEOMETRY[1] * 0.8)), (int(self.DISPLAY_GEOMETRY[0] * 0.2), int(self.DISPLAY_GEOMETRY[1] * 0.15))),
+            html_text='Network_info',
+            manager=self.ui_manager)
+
+        self.ui_leaderboard = pygame_gui.elements.UITextBox(
+            relative_rect=pygame.Rect((int(self.DISPLAY_GEOMETRY[0] * 0.8), int(self.DISPLAY_GEOMETRY[1] * 0.05)), (int(self.DISPLAY_GEOMETRY[0] * 0.15), int(self.DISPLAY_GEOMETRY[1] * 0.3))),
+            html_text='Leaderboard',
+            manager=self.ui_manager)
+
+        
+        # Create thread to periodically update UI elements
+        ui_thread = threading.Thread(target=self.update_ui_elements)
+        ui_thread.daemon = True
+        ui_thread.start()
+
+
+
+        self.running_flag.set()
+        while self.running_flag.isSet():
+
+            time_delta = clock.tick(self.UPS) / 1000
+
+
             # remove previous instances of everything
             game_display.fill((250, 250, 250))
             self.game_map.fill((0, 0, 0))
 
             for event in pygame.event.get():
+                
+                self.ui_manager.process_events(event)
+
                 if event.type == pygame.QUIT:
                     print("[GAME]:Game Quit")
-                    alive = False
 
-                    if self.running_flag != None:
-                        self.running_flag.clear()
+                    self.running_flag.clear()
+
+                # if event.type == pygame.USEREVENT:
+                #     if event.user_type == pygame_gui.UI_BUTTON_PRESSED:
+                #         if event.ui_element == hello_button:
+                #             print('Hello World!')
 
 
                 # print(f"[GAME]:{event}")
@@ -563,15 +700,15 @@ class game:
             pressed_keys = pygame.key.get_pressed()
 
             if pressed_keys[pygame.K_UP]:
-                player.add_mass(10)
+                self.player.add_mass(10)
 
             if pressed_keys[pygame.K_DOWN]:
-                player.add_mass(-10)
+                self.player.add_mass(-10)
 
 
  
             # Move player
-            player.move()
+            self.player.move()
 
 
             # * Eating time
@@ -583,8 +720,8 @@ class game:
             # * DISPLAY THINGS
 
             # We need to render nearby dots
-            player_sector_x = int(player.pos[0] // self.parameters["sector_size"])
-            player_sector_y = int(player.pos[1] // self.parameters["sector_size"])
+            player_sector_x = int(self.player.pos[0] // self.parameters["sector_size"])
+            player_sector_y = int(self.player.pos[1] // self.parameters["sector_size"])
 
             # Look across the screen from our position
             # ! Make sure we don't exceed or undercut sector coords, i.e. reference negative coords
@@ -605,19 +742,25 @@ class game:
                     # Check every dot in each sector
                     for dot in self.sectors[(x,y)]:
 
-                        colour = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
-                        pygame.draw.circle(self.game_map, colour, dot, self.parameters["dot_radius"], self.parameters["dot_radius"])
+                        pygame.draw.circle(self.game_map, dot[2], (dot[0], dot[1]), self.parameters["dot_radius"], self.parameters["dot_radius"])
 
 
             # Display blobs
             for i in self.blobs:
                 self.blobs[i].display()
 
-            # Update screen
-            game_display.blit(self.game_map, player.camera_pos) # transfer game view to display
-            pygame.display.update()
 
-            clock.tick(self.UPS)
+            # Update screen
+            game_display.blit(self.game_map, self.player.camera_pos) # transfer game view to display
+
+            # Display UI
+
+            # Display here so it appears on top of the game
+            self.ui_manager.draw_ui(game_display)
+            self.ui_manager.update(time_delta)
+
+
+            pygame.display.update()
 
         pygame.quit()
 

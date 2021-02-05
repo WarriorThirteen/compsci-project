@@ -1,11 +1,6 @@
-
-
-
 import tkinter as tk
 import tkfontchooser as tkFont
 import tkinter.colorchooser as tkcc
-
-
 
 
 
@@ -73,7 +68,7 @@ class menus:
         self.max_ai_count = ai_limit
 
         # required length of multiplayer game join code
-        self.JOIN_CODE_LENGTH = 6
+        self.JOIN_CODE_LENGTH = 3
 
 
         # Tracking for buttons and menus
@@ -176,7 +171,6 @@ class menus:
         self.home_menu_frame.pack(fill="both", expand=True)
 
 
-
     def open_multiplayer_menu(self):
         '''
         Create and display multiplayer options menu
@@ -220,7 +214,7 @@ class menus:
 
 
             # Connect to hosted game by provided code
-            btn_connect = tk.Button(connect_options, command=self.run_mp_game, text="Join Game", font=self.large_font, bg="green")
+            btn_connect = tk.Button(connect_options, command=self.join_mp_game_holder, text="Join Game", font=self.large_font, bg="green")
             btn_connect.grid(row=2, columnspan=2, sticky="nsew")
 
 
@@ -288,7 +282,6 @@ class menus:
             self.opened_mp = True
 
         self.mp_menu_frame.pack(fill="both", expand=True)
-
 
 
     def open_singleplayer_menu(self):
@@ -441,11 +434,21 @@ class menus:
         Return code entered by user to join multiplayer game
         '''
         code = self.join_code.get()
-        if len(code) != self.JOIN_CODE_LENGTH:
+        if len(code) > self.JOIN_CODE_LENGTH:
             self.alert("This code is the wrong length!")
         else:
             return code
 
+
+    def join_mp_game_holder(self):
+        '''
+        Retreive code and attempt to the relevant multiplayer game
+        '''
+        code = self.get_join_code()
+        if code == None:
+            self.alert("Attempt to join failed")
+        else:
+            self.join_mp_game(code)
 
 
     def toggle_sound(self):

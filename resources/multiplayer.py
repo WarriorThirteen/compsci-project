@@ -1,73 +1,11 @@
 ##  IMPORTS
 
-import game as gm
-
-class test_game:
-    '''
-    Test class to simulate running of the game and gathering it's data from a thread
-    '''
-    def __init__(self):
-        self.count = 1
-        self.randomness_seed = 1234
-        self.dot_loc_list = [(1,1), (2,1)]
-        self.blobs = {}
-        self.UPS = 20
-
-
-    def run(self):
-        while True:
-            self.count += 1
-            if self.count >= 60:
-                self.count = 1
-
-            time.sleep(0.05)
-
-
-    def configure_game(self, config):
-        '''
-        Configure the game setup to mimic someone else's game.
-        '''
-        pass
-
-
-    def create_blob(self, identity, controller):
-        self.blobs[identity] = "blob"
-
-
-    def info_for_new(self):
-        '''
-        return array of info for a new player
-        '''
-        return (self.randomness_seed, self.count, self.dot_loc_list, self.blobs)
-
-
-    def data_to_send(self):
-        '''
-        Generate data to send to the server
-        '''
-        return "Yes"
-
-
-    def process_player_move(self, data):
-        '''
-        Process an update for movement of a player blob
-        '''
-        pass
-
-
-    def disconnect_blob(self, identity):
-        '''
-        Disconnect a networked blob controller and delete their blob
-        '''
-        del self.blobs[identity]
-
-
+from resources import game as gm
 
 import socket
 import threading
 import time
 
-from datetime import datetime
 
 ##  Plan is we import game and run it from here during multiplayer
 ##  Then access attributes and send them to connected people
@@ -98,12 +36,6 @@ connected_client_sockets = set()
 # Control / Configuration variables
 MAX_CONNECTIONS = 5
 
-# Create flag to start and stop sending and receiving etc.
-# This will be referenced via the game attribute so flag is sufficient a name
-flag = threading.Event()
-flag.clear()
-
-game = gm.game(flag)
 
 
 ##  For Hosting
@@ -353,6 +285,9 @@ def join(server_address):
     Connect to and play with people on a server
     '''
 
+    # Tell the game that we have are not the host
+    game.host_name = server_address.split(".")[-1]
+
     print("[MULTIPLAYER]:JOINING")
 
     # Generate socket connected to server and configure game
@@ -418,6 +353,10 @@ def host():
 
 
 if __name__ == "__main__":
+
+    
+    game = gm.game()
+    game.set_multiplayer()
 
     host()
     # join("192.168.0.70")

@@ -1,28 +1,30 @@
 import random
-from resources import menu
+from resources import menu, game, multiplayer
 
 
 ##  Functions
 
 def run_game():
-    '''
+	'''
     Called from within menu to close the tkinter menu and run pygame
     '''
-    menu.not_implemented()
+	game.game().run()
 
 
 def run_multiplayer():
-    '''
-    Called from within menu to close the tkinter menu and run pygame in multiplayer mode, and host a game
-    '''
-    menu.not_implemented()
+	'''
+	Called from within menu to close the tkinter menu and run pygame in multiplayer mode, and host a game
+	'''
+	multiplayer.game = game.game()
+	multiplayer.host()
 
 
-def join_multiplayer():
-    '''
+def join_multiplayer(code):
+	'''
     Called from within menu to close the tkinter menu and run pygame in multiplayer mode, and connect to a networked game
     '''
-    menu.not_implemented()
+	multiplayer.game = game.game()
+	multiplayer.join(code)
 
 
 def gen_name():
@@ -50,9 +52,7 @@ max_dot_spawn_rate = 20 # temp until game has been tested with different values
 
 
 ##  Main program
+main_menu = menu.menus(run_game, run_multiplayer, join_multiplayer, gen_name)
+main_menu.open_home_menu()
 
-menu.init(run_game, run_multiplayer, join_multiplayer, gen_name)
-menu.open_home_menu()
-
-menu.root.mainloop()
-
+main_menu.root.mainloop()
