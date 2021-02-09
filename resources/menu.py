@@ -437,7 +437,7 @@ class menus:
         if len(code) > self.JOIN_CODE_LENGTH:
             self.alert("This code is the wrong length!")
         else:
-            return code
+            return "192.168.0." + code
 
 
     def join_mp_game_holder(self):

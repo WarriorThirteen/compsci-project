@@ -392,7 +392,6 @@ class game:
         self.sectors[(sector_x, sector_y)].append(dot)
 
 
-
     def create_blob(self, controller, controller_type="networked"):
         '''
         Create a blob of a given type and designate its controller
@@ -537,7 +536,7 @@ class game:
             self.ui_game_stats.kill()
             self.ui_game_stats = pygame_gui.elements.UITextBox(
                 relative_rect=pygame.Rect((int(self.DISPLAY_GEOMETRY[0] * 0.4), int(self.DISPLAY_GEOMETRY[1] * 0.8)), (int(self.DISPLAY_GEOMETRY[0] * 0.2), int(self.DISPLAY_GEOMETRY[1] * 0.15))),
-                html_text=f"Total Mass of Blobs - {total_game_mass}<br>Total Mass of Live Dots - {total_dot_mass}",
+                html_text=f"Total Mass of Blobs - {total_game_mass}<br>Mass of Live Dots - {total_dot_mass}",
                 manager=self.ui_manager)
 
         
