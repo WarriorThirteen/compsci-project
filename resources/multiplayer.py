@@ -119,7 +119,7 @@ def client_connector(client_address, client_socket):
 
 
     # Generate this player a blob:
-    game.create_blob(client_address, "networked")
+    game.create_blob(client_address)
 
     # Tell clients a new player has joined:
     msg = SEPARATOR.join((new_connection_message, client_address))
@@ -236,7 +236,7 @@ def listen_to_server(s):
                 if msg[0] == new_connection_message:
                     # A new player has connected
                     # so make them a blob in our game
-                    game.create_blob(msg[1], "networked")
+                    game.create_blob(msg[1])
 
                 elif msg[0] == disconnecting_message:
                     # A player has disconnected

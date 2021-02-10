@@ -32,11 +32,6 @@ def make_alert_func(root):
 
 
 
-
-
-
-
-
 class menus:
     def __init__(self,
         game_run_function=not_implemented,
@@ -45,7 +40,6 @@ class menus:
         name_gen_function=lambda : "Jad",
         difficulty_options_list=("Very Easy", "Easy", "Medium", "Hard", "Very Hard", "Custom"),
         dot_spawn_rate=20, ai_limit=20):
-
 
 
         self.WINDOW_WIDTH = 1280     # These can be changed, but convenient for 720p to be used for
@@ -79,7 +73,6 @@ class menus:
         self.opened_mp = False
 
 
-
         ##  Create and display menu
 
         self.root = tk.Tk()
@@ -99,9 +92,6 @@ class menus:
         self.alert = make_alert_func(self.root)
 
 
-
-
-
         ##  Create sp menu and mp menu frames here
 
         ##  this means we can use pack_forget to close them on opening the home menu
@@ -110,8 +100,6 @@ class menus:
         self.sp_menu_frame = tk.Frame(self.root, bg=self.WINDOW_BACKGROUND)
         self.mp_menu_frame = tk.Frame(self.root, bg=self.WINDOW_BACKGROUND)
         self.home_menu_frame = tk.Frame(self.root, bg=self.WINDOW_BACKGROUND)
-
-
 
 
         ##  Acquire images
@@ -420,13 +408,11 @@ class menus:
         print(self.player_colour)
 
 
-
     def get_spawn_rate(self):
         '''
         Get Spawn rate of dots set by the user
         '''
         return self.spawn_rate_slider.get()
-
 
 
     def get_join_code(self):

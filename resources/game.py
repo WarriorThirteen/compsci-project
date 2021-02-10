@@ -12,19 +12,24 @@ from time import sleep
 
 
 class cell:
-    def __init__(self, world, world_dimensions, pos=(0, 0), colour=(255, 0, 0), starting_mass=500, ):
-        self.pos = list(pos)
+    def __init__(self, game, pos=(0, 0), colour=(255, 0, 0), starting_mass=500, ):
+
+        self.pos    = list(pos)
         self.colour = colour
-        self.mass = starting_mass
-        self.name = "Unnamed"
+        self.mass   = starting_mass
+        self.score  = starting_mass
+        self.name   = "Unnamed"
+        self.id     = self.name
+
+        self.is_bloblet = False
+        self.is_dead    = False
 
         self.radius = 10
         self.update_rad()
 
-        self.world_surface = world
-        self.world_geometry = world_dimensions
+        self.game = game
 
-        self.speed = 10 # for testing - will be a function later
+        self.speed = 10 
         self.update_speed()
 
 
@@ -37,6 +42,8 @@ class cell:
         out["pos"] = self.pos
         out["colour"] = self.colour
         out["mass"] = self.mass
+        out["score"] = self.score
+        out["name"] = self.name
         
         return str(out)
 
@@ -49,6 +56,8 @@ class cell:
         self.pos = new_data["pos"]
         self.colour = new_data["colour"]
         self.set_mass(new_data["mass"])
+        self.score = new_data["score"]
+        self.name = new_data["name"]
 
 
     def set_name(self, name):
@@ -59,15 +68,30 @@ class cell:
 
 
     def display(self):
-        pygame.draw.circle(self.world_surface, self.colour, self.pos, self.radius, self.radius)
+        pygame.draw.circle(self.game.game_map, self.colour, self.pos, self.radius, self.radius)
 
     
-    def move(self, new_pos):
+    def place(self, new_pos):
         '''
         Update blob's coordinates to a new location
         Takes an array like (x,y) of coords
         '''
         self.pos = list(new_pos)
+
+
+    def wall_detect(self):
+        # Validate edge collision
+        if self.pos[0] < 0: # Left
+            self.pos[0] = 0
+
+        if self.pos[1] < 0: # Top
+            self.pos[1] = 0
+
+        if self.pos[0] > self.game.WORLD_GEOMETRY[0] : # Right
+            self.pos[0] = self.game.WORLD_GEOMETRY[0]
+
+        if self.pos[1] > self.game.WORLD_GEOMETRY[1] : # Bottom
+            self.pos[1] = self.game.WORLD_GEOMETRY[1]
 
 
     def update_rad(self):
@@ -99,6 +123,13 @@ class cell:
 
         self.update_speed()
 
+
+    def set_score(self, score):
+        '''
+        Set our score to a given score
+        '''
+        self.score = score
+
     
     def add_mass(self, mass):
         '''
@@ -112,19 +143,57 @@ class cell:
         self.update_speed()
 
 
+    def add_score(self, score):
+        '''
+        Add a given amount to our score
+        '''
+        self.score += score
+
+
+    def eat(self, mass):
+        '''
+        We have eaten something of this mass
+        '''
+        self.add_mass(mass)
+        self.add_score(mass)
+
+
+    def was_absorbed(self, blob):
+        '''
+        We have died,
+        Add mass to blob which ate us
+        '''
+        self.is_dead = True
+        self.score = 0
+
+        blob.eat(self.mass)
+
+        self.mass = 0
+
+
 
 class player_cell(cell):
-    def __init__(self, display_xy, *args):
-        super().__init__(*args)
-        self.peak_mass = self.mass
+    def __init__(self, game, *args):
+        super().__init__(game, *args)
+
+        self.game = game
+
+
+        self.sub_blobs = set()
+        # Count number of sub_blobs made to prevent duplicate naming
+        self.sub_blobs_made = 0
+
+        # Peak score tracked for leaderboard
+        self.peak_score = self.score
+
+        # Here to prevent crash on game start when we try to mouse move and these don't exist
         self.d_x = 0
         self.d_y = 0
-        self.display_geometry = display_xy
 
         self.move = self.key_move  # Set move function depending on mouse or keyboard
         
         # self.mouse_pos = self.pos
-        self.camera_pos = [self.pos[0] + (display_xy[0] // 2), self.pos[1] + (display_xy[1] // 2)]
+        self.camera_pos = [self.pos[0] + (self.game.DISPLAY_GEOMETRY[0] // 2), self.pos[1] + (self.game.DISPLAY_GEOMETRY[1] // 2)]
 
 
     def set_mouse_mode(self, activate=True):
@@ -141,8 +210,8 @@ class player_cell(cell):
 
         self.mouse_pos = pygame.mouse.get_pos()
 
-        rel_x = self.mouse_pos[0] - (self.display_geometry[0] // 2)
-        rel_y = self.mouse_pos[1] - (self.display_geometry[1] // 2)
+        rel_x = self.mouse_pos[0] - (self.game.DISPLAY_GEOMETRY[0] // 2)
+        rel_y = self.mouse_pos[1] - (self.game.DISPLAY_GEOMETRY[1] // 2)
 
         angle = math.atan2(rel_y, rel_x)
 
@@ -161,7 +230,7 @@ class player_cell(cell):
         if abs(self.pos[1] - self.mouse_pos[1]) <= abs(self.d_y):
             self.pos[1] = self.mouse_pos[1]
 
-        self.camera_pos = [ - self.pos[0] + self.display_geometry[0] // 2, - self.pos[1] + self.display_geometry[1] // 2]
+        self.camera_pos = [ - self.pos[0] + self.game.DISPLAY_GEOMETRY[0] // 2, - self.pos[1] + self.game.DISPLAY_GEOMETRY[1] // 2]
 
         self.wall_detect()
 
@@ -187,7 +256,7 @@ class player_cell(cell):
             # self.camera_pos[0] -= self.speed
             self.pos[0] += self.speed
 
-        self.camera_pos = [ - self.pos[0] + self.display_geometry[0] // 2, - self.pos[1] + self.display_geometry[1] // 2]
+        self.camera_pos = [ - self.pos[0] + self.game.DISPLAY_GEOMETRY[0] // 2, - self.pos[1] + self.game.DISPLAY_GEOMETRY[1] // 2]
 
         self.wall_detect()
 
@@ -196,19 +265,19 @@ class player_cell(cell):
         # Validate edge collision
         if self.pos[0] < 0: # Left
             self.pos[0] = 0
-            self.camera_pos[0] = self.display_geometry[0] // 2
+            self.camera_pos[0] = self.game.DISPLAY_GEOMETRY[0] // 2
 
         if self.pos[1] < 0: # Top
             self.pos[1] = 0
-            self.camera_pos[1] = self.display_geometry[1] // 2
+            self.camera_pos[1] = self.game.DISPLAY_GEOMETRY[1] // 2
 
-        if self.pos[0] > self.world_geometry[0] : # Right
-            self.pos[0] = self.world_geometry[0]
-            self.camera_pos[0] = - self.world_geometry[0] + self.display_geometry[0] // 2
+        if self.pos[0] > self.game.WORLD_GEOMETRY[0] : # Right
+            self.pos[0] = self.game.WORLD_GEOMETRY[0]
+            self.camera_pos[0] = - self.game.WORLD_GEOMETRY[0] + self.game.DISPLAY_GEOMETRY[0] // 2
 
-        if self.pos[1] > self.world_geometry[1] : # Bottom
-            self.pos[1] = self.world_geometry[1]
-            self.camera_pos[1] = - self.world_geometry[1] + self.display_geometry[1] // 2
+        if self.pos[1] > self.game.WORLD_GEOMETRY[1] : # Bottom
+            self.pos[1] = self.game.WORLD_GEOMETRY[1]
+            self.camera_pos[1] = - self.game.WORLD_GEOMETRY[1] + self.game.DISPLAY_GEOMETRY[1] // 2
 
 
     def translate(self, new_pos):
@@ -220,20 +289,229 @@ class player_cell(cell):
         self.camera_pos[0] -= new_pos[0]
         self.camera_pos[1] -= new_pos[1]
 
-    def add_mass(self, mass):
+
+    def eat(self, mass):
         '''
         Add to our mass a given value and adjust speed as necessary
-        Polymorphed here to allow tracking of peak mass
+        Polymorphed here to allow tracking of peak score
         '''
         if self.mass + mass <= 0:
             return
 
-        self.mass += mass
-        self.update_rad()
-        self.update_speed()
+        super().eat(mass)
 
-        if self.mass > self.peak_mass:
-            self.peak_mass = self.mass
+        if self.score > self.peak_score:
+            self.peak_score = self.score
+
+
+    def split(self):
+        '''
+        Split our mass in half and make a new blob with it
+        '''
+        # Do we have enough mass?
+        if self.mass > self.game.parameters["min_split_mass"]:
+            new_child = sub_cell(self, self.mass // 2)
+            self.mass = self.mass // 2
+
+            child_name = f"{self.id}_{self.sub_blobs_made}"
+            new_child.id = child_name
+
+            # Record new sub_blob in blob list
+            self.game.blobs[child_name] = new_child
+            self.sub_blobs.add(new_child)
+            self.sub_blobs_made += 1
+
+            # Update stuff for new mass
+            self.update_rad()
+            self.update_speed()
+
+            print("[GAME]:Sub Blob created")
+
+
+
+class sub_cell(cell):
+    '''
+    Bloblet which the player can create.
+    Follows player
+    '''
+    def __init__(self, parent, mass):
+
+        self.parent = parent
+
+        super().__init__(parent.game, pos=parent.pos, colour=parent.colour, starting_mass=mass)
+
+        self.is_bloblet = True
+
+        # Track ticks we have lived for so we can start following parent
+        self.count = 0
+
+        self.move = self.make_move_func
+
+
+    def eat(self, mass):
+        '''
+        Eat the gieven amount of mass
+        Polymorphed because we add to our own mass, but our parent's score
+        '''
+        self.add_mass(mass)
+        self.parent.add_score(mass)
+
+    
+    def update_speed(self):
+        '''
+        Update our speed based on our mass.
+        Polymorphed to make sub blobs faster than they should be to keep up with parents
+        '''
+        super().update_speed()
+        self.speed *= self.parent.game.parameters["sub_blob_speed_ratio"]
+        
+
+    def move(self):
+        print("it's broken")
+
+
+    # Move 1
+    def make_move_func(self):
+        '''
+        Create and assign to our move method a function to propel us away from our parent in the direction they were going.
+        They should have moved away, so point towards them and go
+        '''
+        if self.count < self.parent.game.parameters["sub_blob_wait"]:
+            # Parent hasn't had time to move away
+            pass
+
+
+        else:
+            # What direction are we going?
+            target = self.parent.pos
+
+            rel_x = target[0] - (self.pos[0] // 2)
+            rel_y = target[1] - (self.pos[1] // 2)
+
+            # Find speed in x and y
+            angle = math.atan2(rel_y, rel_x)
+
+            d_x = self.speed * math.cos(angle)
+            d_y = self.speed * math.sin(angle)
+
+            # Move func 2
+            def go_target():
+
+                self.pos[0] += d_x
+                self.pos[1] += d_y
+                self.wall_detect()
+
+                if self.count < self.parent.game.parameters["sub_blob_ttl"]:
+                    # Not time to follow yet
+                    pass
+
+                else:
+                    self.move = self.follow_parent
+                    print("[GAME]:Sub blob now following parent")
+
+                self.count += 1
+
+            self.move = go_target
+
+        self.count += 1
+
+
+    # Move 3
+    def follow_parent(self):
+        '''
+        Follow our parent
+        '''
+        # Find this now and save locally to save repeated lookups
+        parent_pos = self.parent.pos
+
+        # Find relative displacement
+        rel_x = parent_pos[0] - self.pos[0]
+        rel_y = parent_pos[1] - self.pos[1]
+
+        angle = math.atan2(rel_y, rel_x)
+
+        # Find ratio of x to y movement that we need
+        self.d_x = self.speed * math.cos(angle)
+        self.d_y = self.speed * math.sin(angle)
+
+
+        if int(math.dist(self.pos, parent_pos)) > self.radius + self.parent.radius:
+            # We are too far, move closer
+            self.pos = [self.pos[0] + self.d_x, self.pos[1] + self.d_y]
+
+
+        elif self.count < self.parent.game.parameters["sub_blob_min_life"] and int(math.dist(self.pos, parent_pos)) < self.radius + self.parent.radius - self.parent.game.parameters["sub_blob_overlap"]:
+            # We are too young to be reabsorbed, move away
+            self.pos = [self.pos[0] - self.d_x, self.pos[1] - self.d_y]
+
+
+        elif int(math.dist(self.pos, parent_pos)) < self.radius + self.parent.radius - self.parent.game.parameters["sub_blob_overlap"]:
+            # We have lived a short and fulfilling life, let parent reabsorb us
+            pass
+
+        # Check our siblings for distance / reabsorbtion 
+        for sibling in self.parent.sub_blobs:
+            if not sibling is self:
+                self.check_sibling(sibling)
+
+        self.wall_detect()
+        self.count += 1
+
+
+    def check_sibling(self, blob):
+        '''
+        Check distance between us and this other blob, if too close then move away.
+        For use with siblings
+        '''
+        if self.count >= self.parent.game.parameters["sub_blob_min_life"]:
+            # Life done, let sibling absorb us if they move over us
+            pass
+
+
+        elif int(math.dist(self.pos, blob.pos)) < self.radius + blob.radius - self.parent.game.parameters["sub_blob_overlap"]:
+            # We are too close to a sibling
+
+            # Find relative displacement
+            rel_x = blob.pos[0] - self.pos[0]
+            rel_y = blob.pos[1] - self.pos[1]
+
+            angle = math.atan2(rel_y, rel_x)
+
+            # Find ratio of x to y movement that we need
+            self.d_x = self.speed * math.cos(angle)
+            self.d_y = self.speed * math.sin(angle)
+
+            self.pos = [self.pos[0] - self.d_x, self.pos[1] - self.d_y]
+
+
+    def was_absorbed(self, blob):
+        '''
+        We were eaten
+        Polymorphed here to remove ourselves from parent's sub_blobs,
+        and check if blob who ate us is a sibling or our parent
+        '''
+        if (blob is self.parent or blob in self.parent.sub_blobs) and self.count < self.parent.game.parameters["sub_blob_min_life"]:
+            # Not time to be eaten yet - we spawn inside parent
+            pass
+
+        elif blob is self.parent or blob in self.parent.sub_blobs:
+            # They already have score from our mass
+            blob.add_mass(self.mass)
+
+            self.is_dead = True
+            self.score = 0
+            self.mass = 0
+            self.parent.sub_blobs.remove(self)
+
+        else:
+            # We can increase their score
+            blob.eat(self.mass)
+
+            self.is_dead = True
+            self.score = 0
+            self.mass = 0
+            self.parent.sub_blobs.remove(self)
+
 
 
 class game:
@@ -252,11 +530,11 @@ class game:
 
         self.sectors_configured = False
         self.is_multiplayer = False
+        self.separator = "<GAME_SEP>"
 
         self.MY_ID = str(gethostbyname(gethostname()))
 
         
-
         self.parameters = {
             "world_width"   : 1000,
             "world_height"  : 1000,
@@ -269,7 +547,15 @@ class game:
 
             "sector_size"   : 200,
             "dot_mass"      : 10,
-            "dot_radius"    : 10
+            "dot_radius"    : 10,
+            "blob_eat_ratio": 1.3,
+
+            "min_split_mass": 1000,
+            "sub_blob_wait" : 3,
+            "sub_blob_ttl"  : 20,        # Ticks until bloblets follow their parent
+            "sub_blob_min_life": 600,        # Ticks until bloblets can be reabsorbed
+            "sub_blob_overlap": 10,          # Overlap leeway between blobs and their children
+            "sub_blob_speed_ratio": 1.2       # Coefficient of speed in sub blobs to make them faster
         }
 
         WORLD_WIDTH = self.parameters["world_width"]
@@ -392,11 +678,12 @@ class game:
         self.sectors[(sector_x, sector_y)].append(dot)
 
 
-    def create_blob(self, controller, controller_type="networked"):
+    def create_blob(self, controller):
         '''
         Create a blob of a given type and designate its controller
         '''
-        self.blobs[controller] = cell(self.game_map, self.WORLD_GEOMETRY)
+        self.blobs[controller] = cell(self)
+        self.blobs[controller].id = controller
         print(f"[GAME]:Created Blob ID:{controller}")
 
     
@@ -407,10 +694,10 @@ class game:
         del self.blobs[controller]
 
 
-    def check_blob_eat(self, blob):
+    def check_eat_food(self, blob):
         '''
         Look around a blob and see if it has eaten any nearby dots.
-        If so, delete the dot and add mass to the blob
+        If so, delete the dot and tell the blob that it has eaten something
         '''
         # Find blob sector coords
         blob_x, blob_y = blob.pos
@@ -421,7 +708,7 @@ class game:
 
 
         # Determine max and min sector coords to check
-        # ! Make sure we don't exceed or undercut sector coords, i.e. reference negative coords
+        # Make sure we don't exceed or undercut sector coords, i.e. reference negative coords
         if (min_x := sector_x - radius_in_sectors) < 0:
             min_x = 0
         if (max_x := sector_x + radius_in_sectors) > self.sectors_wide:
@@ -443,7 +730,7 @@ class game:
                     # Eat the dot or display the dot?
                     if math.dist((blob_x, blob_y), (dot[0], dot[1])) < blob.radius:
                         # We are close enough to eat the dot
-                        blob.add_mass(self.parameters["dot_mass"])
+                        blob.eat(self.parameters["dot_mass"])
                         del self.sectors[(x,y)][index]
 
 
@@ -479,7 +766,7 @@ class game:
 
         out = [blobs_out, dots_out, params_out]
 
-        print(f"[GAME]:Generated new intro packet")
+        print("[GAME]:Generated new intro packet")
 
         return out
 
@@ -487,10 +774,19 @@ class game:
     def data_to_send(self):
         '''
         Generate data to send to the server when we update something
-        Data is new mass of player blob, and location
+        Data is new mass and score of player blob, and location
         '''
-        out = f"{self.MY_ID},{self.blobs[self.MY_ID].mass},"    # our name, our mass
-        out += f"{self.blobs[self.MY_ID].pos[0]},{self.blobs[self.MY_ID].pos[1]}" # our x, our y
+        out = f"{self.MY_ID},{self.player.mass},{self.player.score},"    # our name, our mass, our score
+        out += f"{self.player.pos[0]},{self.player.pos[1]}" # our x, our y
+
+        for bloblet in self.player.sub_blobs:
+            out += self.separator
+            
+            if bloblet.is_dead:
+                out += f"{bloblet.name},dead"
+            else:
+                out += f"{bloblet.name},{bloblet.mass},{bloblet.pos[0]},{bloblet.pos[1]}"
+
 
         return out
 
@@ -500,14 +796,47 @@ class game:
         Process an update for movement of a player blob
         I.E. receiving end of data sent via above method
         '''
-        # Transform data
-        blob, mass, pos_x, pos_y = data.split(",")
+        foreign_blobs = data.split(self.separator)
+
+        # Transform main player data
+        blob, mass, score, pos_x, pos_y = foreign_blobs[0].split(",")
         pos = (int(float(pos_x)), int(float(pos_y)))
         mass = int(mass)
+        score = int(score)
 
-        # Use data to relocate blob
+        # Use data to calibrate blob
         self.blobs[blob].set_mass(mass)
-        self.blobs[blob].move(pos)
+        self.blobs[blob].set_score(score)
+        self.blobs[blob].place(pos)
+
+
+        # * Deal with player's bloblets
+        for bloblet_data in foreign_blobs[1:]:
+            info = bloblet_data.split(",")
+            name = info[0]
+
+            if info[1] == "dead":
+                # Bloblet died, get rid of them
+                self.disconnect_blob(name)
+
+            elif name in self.blobs:
+                # Bloblet is still alive, and we know about it
+                pos = (int(float(pos_x)), int(float(pos_y)))
+                mass = int(mass)
+
+                # Use data to calibrate blob
+                self.blobs[name].set_mass(mass)
+                self.blobs[name].place(pos)
+
+            else:
+                # Create record for bloblet
+                pos = (int(float(pos_x)), int(float(pos_y)))
+                mass = int(mass)
+                self.blobs[name] = sub_cell(self.blobs[blob], mass)
+
+                # Use data to calibrate blob
+                self.blobs[name].place(pos)
+
 
 
     def update_ui_elements(self):
@@ -520,15 +849,16 @@ class game:
 
         while self.running_flag.isSet():
 
-            # Keep player stats up to date
+            # * Keep player stats up to date
+            player_text = f"Player stats:<br>Current Score - {self.player.score}<br>Peak Score - {self.player.peak_score}<br>Bloblet count - {len(self.player.sub_blobs)}<br>"
             self.ui_player_stats.kill()
             self.ui_player_stats = pygame_gui.elements.UITextBox(
                 relative_rect=pygame.Rect((int(self.DISPLAY_GEOMETRY[0] * 0.2), int(self.DISPLAY_GEOMETRY[1] * 0.8)), (int(self.DISPLAY_GEOMETRY[0] * 0.2), int(self.DISPLAY_GEOMETRY[1] * 0.15))),
-                html_text=f"Player stats:<br>Current Mass - {self.player.mass}<br>Peak Mass - {self.player.peak_mass}",
+                html_text=player_text,
                 manager=self.ui_manager)
 
 
-            # Update Game overall stats
+            # * Update Game overall stats
 
             total_game_mass = sum([self.blobs[blob].mass for blob in self.blobs])
             total_dot_mass = self.parameters["dot_mass"] * sum([len(self.sectors[sector]) for sector in self.sectors])
@@ -540,16 +870,17 @@ class game:
                 manager=self.ui_manager)
 
         
-            # Create Leaderboard
+            # * Create Leaderboard
 
-            blobs_with_masses = [f"{self.blobs[blob].mass} - {self.blobs[blob].name}" for blob in self.blobs]
-            blobs_with_masses.sort()
+            blobs_with_scores = [f"{self.blobs[blob].score} - {self.blobs[blob].name}" for blob in self.blobs if not self.blobs[blob].is_bloblet]
+            blobs_with_scores.sort()
+            # blobs_with_scores.reverse()
 
             # We need 9 people on the board
-            while len(blobs_with_masses) < 9:
-                blobs_with_masses.append("None - None")
+            while len(blobs_with_scores) < 9:
+                blobs_with_scores.append("None - None")
             
-            leaderboard_text = "<br>".join(blobs_with_masses[:9])
+            leaderboard_text = "<br>".join(blobs_with_scores[:9])
             self.ui_leaderboard.kill()
             self.ui_leaderboard = pygame_gui.elements.UITextBox(
                 relative_rect=pygame.Rect((int(self.DISPLAY_GEOMETRY[0] * 0.8), int(self.DISPLAY_GEOMETRY[1] * 0.05)), (int(self.DISPLAY_GEOMETRY[0] * 0.15), int(self.DISPLAY_GEOMETRY[1] * 0.3))),
@@ -558,7 +889,7 @@ class game:
 
 
             if self.is_multiplayer:
-                # Display our multiplayer info
+                # * Display our multiplayer info
                 
                 self.ui_other_info.kill()
                 self.ui_other_info = pygame_gui.elements.UITextBox(
@@ -607,14 +938,12 @@ class game:
 
         ## * Creating things!
 
-
-
         # Create PLayer
         player_colour = self.parameters["player_colour"]
         player_centre = (0, 0) #(- WORLD_WIDTH // 2, - WORLD_HEIGHT // 2)
 
 
-        self.player = player_cell(self.DISPLAY_GEOMETRY, self.game_map, self.WORLD_GEOMETRY, player_centre, player_colour)
+        self.player = player_cell(self, player_centre, player_colour)
 
         ##  Mouse Mode toggle will be in menu or something later
         mouse_mode = self.parameters["mouse_mode"]
@@ -699,21 +1028,53 @@ class game:
             pressed_keys = pygame.key.get_pressed()
 
             if pressed_keys[pygame.K_UP]:
-                self.player.add_mass(10)
+                self.player.eat(10)
 
             if pressed_keys[pygame.K_DOWN]:
-                self.player.add_mass(-10)
+                self.player.eat(-10)
 
+            if pressed_keys[pygame.K_SPACE]:
+                self.player.split()
 
  
             # Move player
             self.player.move()
+            
+            for bloblet in self.player.sub_blobs:
+                bloblet.move()
 
 
             # * Eating time
 
             for blob_name in self.blobs:
-                self.check_blob_eat(self.blobs[blob_name])
+                self.check_eat_food(self.blobs[blob_name])
+            
+
+            # Player sub_blobs can eat each other and be eaten by player
+            for sub_blob in self.player.sub_blobs.copy():
+                if sub_blob.is_dead:
+                    # Blob died in previous loop
+                    continue
+
+                # Let our player eat their sub_blobs
+                if math.dist(self.player.pos, sub_blob.pos) < self.player.radius:
+                    sub_blob.was_absorbed(self.player)
+
+                else:
+                    # Let sub_blobs eat each other
+                    for other_blob in self.player.sub_blobs.copy():
+                        if other_blob.is_dead:
+                            # Blob died in previous loop
+                            continue
+
+                        elif other_blob is sub_blob:
+                            # Don't eat yourself!
+                            continue
+
+                        elif math.dist(other_blob.pos, sub_blob.pos) < sub_blob.radius and sub_blob.mass > other_blob.mass * self.parameters["blob_eat_ratio"]:
+                            # Good enough to eat!
+                            other_blob.was_absorbed(sub_blob)
+
 
 
             # * DISPLAY THINGS
@@ -738,15 +1099,16 @@ class game:
             for x in range(min_x, max_x):
                 for y in range(min_y, max_y):
 
-                    # Check every dot in each sector
+                    # Draw every dot in each sector
                     for dot in self.sectors[(x,y)]:
 
                         pygame.draw.circle(self.game_map, dot[2], (dot[0], dot[1]), self.parameters["dot_radius"], self.parameters["dot_radius"])
 
 
             # Display blobs
-            for i in self.blobs:
-                self.blobs[i].display()
+            for blob_name in self.blobs:
+                if not self.blobs[blob_name].is_dead:
+                    self.blobs[blob_name].display()
 
 
             # Update screen
