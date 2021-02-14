@@ -1,3 +1,5 @@
+import winsound
+
 import tkinter as tk
 import tkfontchooser as tkFont
 import tkinter.colorchooser as tkcc
@@ -39,7 +41,7 @@ class menus:
         multiplayer_join_function=not_implemented,
         name_gen_function=lambda : "Jad",
         difficulty_options_list=("Very Easy", "Easy", "Medium", "Hard", "Very Hard", "Custom"),
-        dot_spawn_rate=20, ai_limit=20):
+        dot_spawn_rate=3, ai_limit=20):
 
 
         self.WINDOW_WIDTH = 1280     # These can be changed, but convenient for 720p to be used for
@@ -58,15 +60,14 @@ class menus:
 
         self.difficulty_options = difficulty_options_list
         self.gen_name = name_gen_function
+
         self.max_spawn_rate = dot_spawn_rate # max spawn rate of dots
         self.max_ai_count = ai_limit
-
-        # required length of multiplayer game join code
-        self.JOIN_CODE_LENGTH = 3
-
+        self.max_world_size = 10000
+        self.max_dot_value = 50
 
         # Tracking for buttons and menus
-        self.sound_on = True
+        self.sound_on = False
 
         self.opened_home = False
         self.opened_sp = False
@@ -82,6 +83,9 @@ class menus:
 
         self.difficulty = tk.StringVar()
         self.difficulty.set(self.difficulty_options[1])  # default difficulty
+
+        self.mouse_control = tk.IntVar(self.root)
+
 
         self.std_font = tkFont.Font(root=self.root, family=self.FONT_FAMILY, size=12)
         self.large_font = tkFont.Font(root=self.root, family=self.FONT_FAMILY, size=20)
@@ -155,6 +159,9 @@ class menus:
             self.btn_close_program.place(relx=0.95, rely=0.1, anchor="ne")
 
             self.opened_home = True
+            # Start the music
+            self.toggle_sound()
+
 
         self.home_menu_frame.pack(fill="both", expand=True)
 
@@ -216,7 +223,6 @@ class menus:
 
 
 
-
             # Options for user to customise themselves or their blob before hosting/connecting
 
             join_options_count = 0
@@ -227,32 +233,16 @@ class menus:
 
             # Configure game
 
-            tk.Label(join_options, text="Configure Game. PLACEHOLDER OPTIONS", wrap=200, font=self.std_font).grid(row=0, columnspan=2, sticky="nsew")
+            tk.Label(join_options, text="Multiplayer exlusive options. To configure game, please open singleplayer menu", wrap=200, font=self.std_font).grid(row=0, columnspan=2, sticky="nsew")
 
 
-            # difficulty
-            tk.Label(join_options, text="Difficulty", font=self.std_font).grid(row=1, column=0, sticky="nsew")
+            
+            # dot spawn rate
+            tk.Label(join_options, text="Port:", font=self.std_font).grid(row=1, column=0, sticky="nsew")
 
-            self.difficulty_option_selector = tk.OptionMenu(join_options, self.difficulty, *self.difficulty_options)
-            self.difficulty_option_selector.grid(row=1, column=1, sticky="nsew")
-
-            join_options_count += 1
-
-            # name
-            # allow name to be retrieved elsewhere
-            tk.Label(join_options, text="Name:", font=self.std_font).grid(row=2, column=0, sticky="nsew")
-
-            self.name_input = tk.Entry(join_options)
-            self.name_input.grid(row=2, column=1, sticky="nsew")
-            self.name_input.insert(0, self.gen_name())
-
-            join_options_count += 1
-
-            # set colour
-            tk.Label(join_options, text="Colour:", font=self.std_font).grid(row=3, column=0, sticky="nsew")
-
-            self.colour_input = tk.Button(join_options, command=self.change_colour, text="Select Colour!", font=self.std_font, bg=self.player_colour)
-            self.colour_input.grid(row=3, column=1, sticky="nsew")
+            self.port_selector = tk.Scale(join_options, from_=1000, to=60000, orient="horizontal", font=self.std_font)
+            self.port_selector.grid(row=1, column=1, sticky="nsew")
+            self.port_selector.set(5001)
 
             join_options_count += 1
 
@@ -333,6 +323,14 @@ class menus:
             simple_options_count += 1
 
 
+            # Mouse Mode
+            tk.Label(sp_simple_options, text="Mouse control:", font=self.std_font).grid(row=4, column=0, sticky="nsew")
+
+            self.mouse_mode_toggle = tk.Checkbutton(sp_simple_options, variable=self.mouse_control, offvalue=0, onvalue=1, font=self.std_font)
+            self.mouse_mode_toggle.grid(row=4, column=1, sticky="nsew")
+
+            simple_options_count += 1
+
 
 
             ##  Allow widgets to resize themselves
@@ -354,7 +352,7 @@ class menus:
             sp_advanced_options.place(relx=0.8, rely=0.3, relwidth=0.2, relheight=0.4, anchor="ne")
 
 
-            tk.Label(sp_advanced_options, text="Please select custom difficulty for these settings to take effect. PLACEHOLDER OPTIONS", wrap=200, font=self.std_font).grid(row=0, column=0, columnspan=2, sticky="nsew")
+            tk.Label(sp_advanced_options, text="Advanced options:", wrap=200, font=self.std_font).grid(row=0, column=0, columnspan=2, sticky="nsew")
             advanced_options_count += 1
 
             # advanced option widgets go here
@@ -364,11 +362,11 @@ class menus:
             # dot spawn rate
             tk.Label(sp_advanced_options, text="Dot Spawn Rate:", font=self.std_font).grid(row=1, column=0, sticky="nsew")
 
-            self.spawn_rate_slider = tk.Scale(sp_advanced_options, from_=1, to=self.max_spawn_rate, orient="horizontal", font=self.std_font)
+            self.spawn_rate_slider = tk.Scale(sp_advanced_options, from_=0, to=self.max_spawn_rate, orient="horizontal", font=self.std_font)
             self.spawn_rate_slider.grid(row=1, column=1, sticky="nsew")
+            self.spawn_rate_slider.set(2)
 
             advanced_options_count += 1
-
 
 
             # AI spawn limit
@@ -376,9 +374,38 @@ class menus:
 
             self.ai_count_slider = tk.Scale(sp_advanced_options, from_=1, to=self.max_ai_count, orient="horizontal", font=self.std_font)
             self.ai_count_slider.grid(row=2, column=1, sticky="nsew")
+            self.ai_count_slider.set(5)
 
             advanced_options_count += 1
 
+
+            # World Size
+            tk.Label(sp_advanced_options, text="Game size:", font=self.std_font).grid(row=3, column=0, sticky="nsew")
+
+            self.world_size_slider = tk.Scale(sp_advanced_options, from_=500, to=self.max_world_size, orient="horizontal", font=self.std_font)
+            self.world_size_slider.grid(row=3, column=1, sticky="nsew")
+            self.world_size_slider.set(1000)
+
+            advanced_options_count += 1
+
+
+            # Dot Value
+            tk.Label(sp_advanced_options, text="Dot food value:", font=self.std_font).grid(row=4, column=0, sticky="nsew")
+
+            self.dot_value_slider = tk.Scale(sp_advanced_options, from_=1, to=self.max_dot_value, orient="horizontal", font=self.std_font)
+            self.dot_value_slider.grid(row=4, column=1, sticky="nsew")
+            self.dot_value_slider.set(10)
+
+            advanced_options_count += 1
+
+            # Minimum split mass
+            tk.Label(sp_advanced_options, text="Minimum mass to split:", font=self.std_font).grid(row=5, column=0, sticky="nsew")
+
+            self.split_mass_slider = tk.Scale(sp_advanced_options, from_=100, to=2000, orient="horizontal", font=self.std_font)
+            self.split_mass_slider.grid(row=5, column=1, sticky="nsew")
+            self.split_mass_slider.set(1000)
+
+            advanced_options_count += 1
 
 
             ##  Allow widgets to resize themselves
@@ -399,6 +426,14 @@ class menus:
 
     # Auxiliary Functions
 
+
+    def get_port(self):
+        '''
+        Returns desired port
+        '''
+        return self.port_selector.get()
+
+
     def change_colour(self):
         '''
         Change the selected colour and update the colour of the button for clarity
@@ -408,11 +443,54 @@ class menus:
         print(self.player_colour)
 
 
-    def get_spawn_rate(self):
+    def get_name(self):
+        '''
+        Get player's name
+        '''
+        return self.name_input.get()
+
+
+    def get_dot_spawn_rate(self):
         '''
         Get Spawn rate of dots set by the user
         '''
         return self.spawn_rate_slider.get()
+
+
+    def get_ai_limit(self):
+        '''
+        Get AI spawn limit set by the user
+        '''
+        return self.ai_count_slider.get()
+
+
+    def get_world_size(self):
+        '''
+        Get world size set by the user
+        '''
+        return self.world_size_slider.get()
+
+
+    def get_dot_value(self):
+        '''
+        Get value of dots set by the user
+        '''
+        return self.dot_value_slider.get()
+
+
+    def get_split_value(self):
+        '''
+        Get Minimum split value set by the user
+        '''
+        return self.split_mass_slider.get()
+
+
+    def get_mouse_control(self):
+        '''
+        Return True if mouse control toggled
+        Otherwise false
+        '''
+        return bool(self.mouse_control.get())
 
 
     def get_join_code(self):
@@ -420,10 +498,68 @@ class menus:
         Return code entered by user to join multiplayer game
         '''
         code = self.join_code.get()
-        if len(code) > self.JOIN_CODE_LENGTH:
-            self.alert("This code is the wrong length!")
-        else:
-            return "192.168.0." + code
+        if self.check_code(code):
+            return code
+
+
+    def check_code(self, code):
+        '''
+        Check if a given code is valid, returning True.
+        Otherwise return False
+        '''
+        # Current required format is ip address
+        code = code.split(".")
+
+        # Should be 4 numbers long
+        if len(code) != 4:
+            self.alert("Wrong number of decimals in code!")
+            return False
+
+        # All values should be integers between 0 and 255
+        try:
+            for i, value in enumerate(code):
+                code[i] = int(value)
+
+                if value < 0 or value > 255:
+                    self.alert("IP numbers not real")
+                    return False
+        
+        except:
+            self.alert("Incorrect format for IP")
+            return False
+
+        return True
+
+
+    
+    def get_difficulty(self):
+        '''
+        Return a numeric difficulty based on the value selected by the player
+        '''
+        return self.difficulty_options.index(self.difficulty.get())
+
+
+    def get_parameters(self):
+        '''
+        Returns all the parameters set by the user in a dictionary
+        '''
+        params = {}
+        params["world_width"]   = self.get_world_size()
+        params["player_name"]   = self.get_name()
+        params["dot_mass"]      = self.get_dot_value()
+        params["dot_spawn_rate"]= self.get_dot_spawn_rate()
+        params["min_split_mass"]= self.get_split_value()
+        params["ai_limit"]      = self.get_ai_limit()
+        params["ai_difficulty"] = self.get_difficulty()
+        params["mouse_mode"]    = self.get_mouse_control()
+
+        params["player_colour"] = self.player_colour
+        params["world_height"] = params["world_width"]
+
+        print(f"[MENU]:Parameters output: {params}")
+
+        return params
+
 
 
     def join_mp_game_holder(self):
@@ -441,12 +577,14 @@ class menus:
         if self.sound_on:
             self.btn_sound_toggle.config(image=self.muted_icon)
             self.sound_on = False
+            winsound.PlaySound(None, winsound.SND_PURGE)
 
         else:
             self.btn_sound_toggle.config(image=self.unmuted_icon)
             self.sound_on = True
+            winsound.PlaySound("resources/other_data/music.wav", winsound.SND_ASYNC | winsound.SND_LOOP)
 
-        self.alert("Sound isn't on anyway!")
+        # self.alert("Sound isn't on anyway!")
 
 
     @staticmethod

@@ -1,10 +1,12 @@
 ##  IMPORTS
-
-from resources import game as gm
-
 import socket
 import threading
 import time
+
+try:
+    from resources import game as gm
+except ModuleNotFoundError:
+    import game as gm
 
 
 ##  Plan is we import game and run it from here during multiplayer
@@ -14,7 +16,7 @@ import time
 # SEPARATOR token to divide parts of message and buffer is how large each message is.
 SEPARATOR = "<SEPARATOR>"
 EOM_TOKEN = "<end>"
-BUFFER_SIZE = 4096
+BUFFER_SIZE = 8192
 
 
 # Set greetings for new players:
@@ -188,7 +190,7 @@ def broadcast_from_server():
             for client in connected_client_sockets:
                 client.send(msg.encode())
 
-        except RuntimeError: # Client was removed from list while we were iterating through
+        except RuntimeError or ConnectionResetError: # Client was removed from list while we were iterating through
             pass
 
         time.sleep(1 / game.UPS)
@@ -286,7 +288,7 @@ def join(server_address):
     '''
 
     # Tell the game that we have are not the host
-    game.host_name = server_address.split(".")[-1]
+    game.set_multiplayer(server_address.split(".")[-1])
 
     print("[MULTIPLAYER]:JOINING")
 
@@ -326,6 +328,7 @@ def host():
     '''
 
     print("[MULTIPLAYER]:HOSTING")
+    game.set_multiplayer()
 
     # Start Listening
 

@@ -12,7 +12,7 @@ from time import sleep
 
 
 class cell:
-    def __init__(self, game, pos=(0, 0), colour=(255, 0, 0), starting_mass=500, ):
+    def __init__(self, game, pos=(0, 0), colour=(255, 0, 0), starting_mass=500):
 
         self.pos    = list(pos)
         self.colour = colour
@@ -28,6 +28,7 @@ class cell:
         self.update_rad()
 
         self.game = game
+        self.sub_blobs = set()
 
         self.speed = 10 
         self.update_speed()
@@ -164,22 +165,20 @@ class cell:
         Add mass to blob which ate us
         '''
         self.is_dead = True
-        self.score = 0
+        self.set_score(0)
+        del self.game.blobs[self.id]
 
         blob.eat(self.mass)
 
         self.mass = 0
 
 
-
 class player_cell(cell):
     def __init__(self, game, *args):
         super().__init__(game, *args)
 
-        self.game = game
+        self.id = self.game.MY_ID
 
-
-        self.sub_blobs = set()
         # Count number of sub_blobs made to prevent duplicate naming
         self.sub_blobs_made = 0
 
@@ -327,6 +326,25 @@ class player_cell(cell):
 
             print("[GAME]:Sub Blob created")
 
+
+    def was_absorbed(self, blob):
+        '''
+        If player is absorbed it's game over
+        Do not allow sub_blobs to absorb their parent
+        '''
+
+        if blob in self.sub_blobs:
+            # Our child has attempted to eat us!
+            return
+
+        self.is_dead = True
+        self.score = 0
+
+        # If we are absorbed, Why bother increasing mass of other blob?
+        # Other blob will do that and send out their new mass
+
+        self.mass = 0
+        self.game.game_over()
 
 
 class sub_cell(cell):
@@ -492,31 +510,27 @@ class sub_cell(cell):
         '''
         if (blob is self.parent or blob in self.parent.sub_blobs) and self.count < self.parent.game.parameters["sub_blob_min_life"]:
             # Not time to be eaten yet - we spawn inside parent
+            # And it wasn't some other person who ate us
             pass
 
         elif blob is self.parent or blob in self.parent.sub_blobs:
-            # They already have score from our mass
-            blob.add_mass(self.mass)
 
-            self.is_dead = True
-            self.score = 0
-            self.mass = 0
-            self.parent.sub_blobs.remove(self)
+            # Lower parents score before it is increased when they eat us
+            self.parent.set_score(self.parent.score - self.mass)
+
+            super().was_absorbed(blob)
+
+            #self.parent.sub_blobs.discard(self)
 
         else:
             # We can increase their score
-            blob.eat(self.mass)
-
-            self.is_dead = True
-            self.score = 0
-            self.mass = 0
-            self.parent.sub_blobs.remove(self)
-
+            super().was_absorbed(blob)
+            #self.parent.sub_blobs.remove(self)
 
 
 class game:
 
-    def __init__(self):
+    def __init__(self, params={}):
         '''
         Create a game instance
         '''
@@ -531,6 +545,7 @@ class game:
         self.sectors_configured = False
         self.is_multiplayer = False
         self.separator = "<GAME_SEP>"
+        self.null_mass = -1
 
         self.MY_ID = str(gethostbyname(gethostname()))
 
@@ -544,19 +559,24 @@ class game:
 
             "random_seed"   : random.randint(0, 10000),
             "random_count"  : 0,
+            "ai_limit"      : 1,
+            "ai_difficulty" : 1,
 
             "sector_size"   : 200,
             "dot_mass"      : 10,
             "dot_radius"    : 10,
+            "dot_spawn_rate": 3,
             "blob_eat_ratio": 1.3,
 
             "min_split_mass": 1000,
             "sub_blob_wait" : 3,
             "sub_blob_ttl"  : 20,        # Ticks until bloblets follow their parent
-            "sub_blob_min_life": 600,        # Ticks until bloblets can be reabsorbed
+            "sub_blob_min_life": 300,        # Ticks until bloblets can be reabsorbed
             "sub_blob_overlap": 10,          # Overlap leeway between blobs and their children
             "sub_blob_speed_ratio": 1.2       # Coefficient of speed in sub blobs to make them faster
         }
+
+        self.parameters = self.parameters | params
 
         WORLD_WIDTH = self.parameters["world_width"]
         WORLD_HEIGHT = self.parameters["world_height"]
@@ -567,6 +587,7 @@ class game:
 
         self.game_map = pygame.Surface(self.WORLD_GEOMETRY)
 
+        self.ai_blob_ids = set()
         self.blobs = {}
 
         print("[GAME]:Created game instance")
@@ -574,6 +595,27 @@ class game:
 
         self.running_flag = threading.Event()
         self.running_flag.clear()
+
+
+    def game_over(self):
+        '''
+        Game is over :(
+        Stop the main loop
+        '''
+        # Stop main loop
+        game_over_image = pygame.image.load("resources/images/game_over.png") # size is (597, 84)
+        self.running_flag.clear()
+
+        # Find coords to center the game over image
+        coords = ((self.DISPLAY_GEOMETRY[0] - game_over_image.get_rect().size[0]) // 2, (self.DISPLAY_GEOMETRY[1] - game_over_image.get_rect().size[1]) // 2)
+
+        self.game_display.blit(game_over_image, coords)
+        pygame.display.update()
+
+        print("[GAME]:Game over triggered")
+
+        sleep(1.5)
+
 
 
     def configure_game(self, config_pack):
@@ -591,7 +633,7 @@ class game:
         # new blobs is like "ip_address:{keys:info}," repeated arbitrarily
 
         while len(new_blobs) >= 3: # there wont be more than 3 commas or spaces at the end
-            name, new_blobs = new_blobs[:new_blobs.index(":")], new_blobs[new_blobs.index(":")+1:]
+            name, new_blobs = new_blobs[:new_blobs.index(":")].removeprefix(","), new_blobs[new_blobs.index(":")+1:]
             info, new_blobs = new_blobs[:new_blobs.index("}")+1], new_blobs[new_blobs.index("}")+1:] # These come in the blob description
 
             self.create_blob(name)
@@ -613,14 +655,17 @@ class game:
         print("[GAME]:Game Configured")
 
 
-    def set_multiplayer(self):
+    def set_multiplayer(self, host=None):
         '''
         It is useful knowing whether we are a multiplayer game
         '''
         self.is_multiplayer = True
 
         # Assume we are the host until told otherwise
-        self.host_name = self.MY_ID.split(".")[-1]
+        self.host_name = self.MY_ID
+        if host:
+            self.host_name = host
+
         print("[GAME]:We are playing multiplayer")
 
 
@@ -629,14 +674,14 @@ class game:
         Establish the sector dictionary for the map.
         '''
         # Determine width and height in terms of sectors
-        self.sectors_wide = self.parameters["world_width"] // self.parameters["sector_size"] + 1
-        self.sectors_high = self.parameters["world_height"] // self.parameters["sector_size"] + 1
+        self.sectors_wide = self.parameters["world_width"] // self.parameters["sector_size"]
+        self.sectors_high = self.parameters["world_height"] // self.parameters["sector_size"]
 
         # Create sector dictionary
         self.sectors = {}
         
-        for x in range(self.sectors_wide):
-            for y in range(self.sectors_high):
+        for x in range(self.sectors_wide + 1):
+            for y in range(self.sectors_high + 1):
                 self.sectors[(x, y)] = []
 
         self.sectors_configured = True
@@ -647,7 +692,7 @@ class game:
         '''
         Randomly spawn a given number of dots, incrementing random count accordingly
         '''
-        for i in range(count):
+        for _ in range(count):
             # Seed the randomness module
             seed = self.parameters["random_seed"] + self.parameters["random_count"]
             self.parameters["random_count"] += 1
@@ -662,8 +707,21 @@ class game:
 
             self.place_dot((x, y, colour))
 
+        if count > 1:
+            print(f"[GAME]:Spawned {count} dots")
 
-        print(f"[GAME]:Spawned {count} dots")
+
+    def continuous_dot_spawn(self):
+        '''
+        Spawn dots every second depending on configured dot spawn rate.
+        '''
+        self.running_flag.wait()
+        print(f"[GAME]:Continuous dot spawn enabled rate:{self.parameters['dot_spawn_rate']}")
+
+        while self.running_flag.isSet():
+            sleep(1/self.parameters["dot_spawn_rate"])
+            self.spawn_dots(1)
+
 
 
     def place_dot(self, dot):
@@ -691,6 +749,9 @@ class game:
         '''
         Delete a designated blob from the game
         '''
+        for bloblet in self.blobs[controller].sub_blobs:
+            del self.blobs[bloblet.id]
+
         del self.blobs[controller]
 
 
@@ -720,8 +781,8 @@ class game:
             max_y = self.sectors_high
 
         # Start looking
-        for x in range(min_x, max_x):
-            for y in range(min_y, max_y):
+        for x in range(min_x, max_x + 1):
+            for y in range(min_y, max_y + 1):
 
                 # Check every dot in each sector
                 for index, dot in enumerate(self.sectors[(x,y)]):
@@ -732,6 +793,36 @@ class game:
                         # We are close enough to eat the dot
                         blob.eat(self.parameters["dot_mass"])
                         del self.sectors[(x,y)][index]
+
+
+    def check_eat_blob(self, blob):
+        '''
+        Check if a specific blob is able to eat any other blobs,
+        or if they should be eaten by another blob
+        '''
+        for other_blob_name in self.blobs.copy():
+            other_blob = self.blobs[other_blob_name]
+
+            if blob.is_bloblet and other_blob is blob.parent:
+                # Our parent will eat us, don't try to eat them.
+                continue
+
+
+            # Can we eat them?
+            elif math.dist(other_blob.pos, blob.pos) < blob.radius and blob.mass > other_blob.mass * self.parameters["blob_eat_ratio"]:
+                # Yes we can
+                other_blob.was_absorbed(blob)
+
+            elif math.dist(other_blob.pos, blob.pos) < other_blob.radius and other_blob.mass > blob.mass * self.parameters["blob_eat_ratio"]:
+                # They can eat us
+                blob.was_absorbed(other_blob)
+
+                # our blob is dead don't bother checking others
+                break
+
+            else:
+                # Nobody can eat the other so just pass
+                pass
 
 
     def info_for_new(self):
@@ -759,7 +850,10 @@ class game:
 
         # now add parameters
         # These are the parameters we need to share with new player
-        mp_params = ("world_width", "world_height", "random_seed", "random_count")
+        mp_params = (
+            "world_width", "world_height", "random_seed", "random_count",
+            "dot_mass", "blob_eat_ratio", "min_split_mass"
+        )
 
         params_out = {i:self.parameters[i] for i in mp_params}
         params_out = str(params_out)
@@ -776,17 +870,17 @@ class game:
         Generate data to send to the server when we update something
         Data is new mass and score of player blob, and location
         '''
-        out = f"{self.MY_ID},{self.player.mass},{self.player.score},"    # our name, our mass, our score
+        out = f"{self.MY_ID},{self.player.mass},{self.player.score},"    # our id, our mass, our score
         out += f"{self.player.pos[0]},{self.player.pos[1]}" # our x, our y
 
-        for bloblet in self.player.sub_blobs:
+        for bloblet in self.player.sub_blobs.copy():
             out += self.separator
             
             if bloblet.is_dead:
-                out += f"{bloblet.name},dead"
+                out += f"{bloblet.id},{self.null_mass}, , "
+                self.player.sub_blobs.remove(bloblet)
             else:
-                out += f"{bloblet.name},{bloblet.mass},{bloblet.pos[0]},{bloblet.pos[1]}"
-
+                out += f"{bloblet.id},{bloblet.mass},{bloblet.pos[0]},{bloblet.pos[1]}"
 
         return out
 
@@ -810,17 +904,19 @@ class game:
         self.blobs[blob].place(pos)
 
 
+
         # * Deal with player's bloblets
         for bloblet_data in foreign_blobs[1:]:
             info = bloblet_data.split(",")
             name = info[0]
 
-            if info[1] == "dead":
+            if int(info[1]) == self.null_mass:
                 # Bloblet died, get rid of them
                 self.disconnect_blob(name)
 
             elif name in self.blobs:
                 # Bloblet is still alive, and we know about it
+                mass, pos_x, pos_y = info[1:]
                 pos = (int(float(pos_x)), int(float(pos_y)))
                 mass = int(mass)
 
@@ -832,11 +928,15 @@ class game:
                 # Create record for bloblet
                 pos = (int(float(pos_x)), int(float(pos_y)))
                 mass = int(mass)
-                self.blobs[name] = sub_cell(self.blobs[blob], mass)
+                new_child = sub_cell(self.blobs[blob], mass)
+                new_child.id = name
+                self.blobs[name] = new_child
+
+                # Assign to parent
+                self.blobs[blob].sub_blobs.add(new_child)
 
                 # Use data to calibrate blob
                 self.blobs[name].place(pos)
-
 
 
     def update_ui_elements(self):
@@ -871,10 +971,16 @@ class game:
 
         
             # * Create Leaderboard
+            # Get players names and their scores
+            blobs_with_scores = [(self.blobs[blob].score, self.blobs[blob].name) for blob in self.blobs if not self.blobs[blob].is_bloblet]
+            # Sort based on score
+            blobs_with_scores.sort(key=lambda x: x[0])
 
-            blobs_with_scores = [f"{self.blobs[blob].score} - {self.blobs[blob].name}" for blob in self.blobs if not self.blobs[blob].is_bloblet]
-            blobs_with_scores.sort()
-            # blobs_with_scores.reverse()
+            # Merge scores and name into a string
+            for i, value in enumerate(blobs_with_scores):
+                blobs_with_scores[i] = " - ".join((str(value[0]), value[1]))
+
+            blobs_with_scores.reverse()
 
             # We need 9 people on the board
             while len(blobs_with_scores) < 9:
@@ -888,15 +994,24 @@ class game:
                 manager=self.ui_manager)
 
 
+            # * Display misc data
             if self.is_multiplayer:
-                # * Display our multiplayer info
+                # Display our multiplayer info
                 
                 self.ui_other_info.kill()
                 self.ui_other_info = pygame_gui.elements.UITextBox(
                     relative_rect=pygame.Rect((int(self.DISPLAY_GEOMETRY[0] * 0.6), int(self.DISPLAY_GEOMETRY[1] * 0.8)), (int(self.DISPLAY_GEOMETRY[0] * 0.2), int(self.DISPLAY_GEOMETRY[1] * 0.15))),
-                    html_text=f"Code to connect - {self.host_name}<br>Player count - {len(self.blobs)}",
+                    html_text=f"Multiplayer Data:<br>Code to connect - {self.host_name}<br>Player count - {len(self.blobs)}<br>You are the host - {self.host_name == self.MY_ID}",
                     manager=self.ui_manager)
 
+            else:
+                # Display our AI info
+                
+                self.ui_other_info.kill()
+                self.ui_other_info = pygame_gui.elements.UITextBox(
+                    relative_rect=pygame.Rect((int(self.DISPLAY_GEOMETRY[0] * 0.6), int(self.DISPLAY_GEOMETRY[1] * 0.8)), (int(self.DISPLAY_GEOMETRY[0] * 0.2), int(self.DISPLAY_GEOMETRY[1] * 0.15))),
+                    html_text=f"AI info:<br>Number of AI - {len(self.ai_blob_ids)}<br>Difficulty - {self.parameters['ai_difficulty']}",
+                    manager=self.ui_manager)
 
 
 
@@ -921,14 +1036,14 @@ class game:
         # Find width and height of screen in terms of sectors, rounded up
         # These are halved because we look from player's position in the centre of the screen
         # Add one to make sure dots are rendered at the edge of the screen
-        screen_sector_width = (WORLD_WIDTH // self.parameters["sector_size"] + 1) // 2 + 1
-        screen_sector_height = (WORLD_HEIGHT // self.parameters["sector_size"] + 1) // 2 + 1
+        screen_sector_width = (WORLD_WIDTH // self.parameters["sector_size"] + 1) // 2
+        screen_sector_height = (WORLD_HEIGHT // self.parameters["sector_size"] + 1) // 2
 
 
 
         # Configure display and pygame settings
-        game_display = pygame.display.set_mode(self.DISPLAY_GEOMETRY)
-        game_display.fill((250, 250, 250))
+        self.game_display = pygame.display.set_mode(self.DISPLAY_GEOMETRY)
+        self.game_display.fill((250, 250, 250))
 
         pygame.display.set_caption("Jario")
 
@@ -939,18 +1054,16 @@ class game:
         ## * Creating things!
 
         # Create PLayer
-        player_colour = self.parameters["player_colour"]
-        player_centre = (0, 0) #(- WORLD_WIDTH // 2, - WORLD_HEIGHT // 2)
+        player_start = (0, 0) #(- WORLD_WIDTH // 2, - WORLD_HEIGHT // 2)
 
-
-        self.player = player_cell(self, player_centre, player_colour)
+        self.player = player_cell(self, player_start, self.parameters["player_colour"])
+        self.player.set_name(self.parameters["player_name"])
 
         ##  Mouse Mode toggle will be in menu or something later
         mouse_mode = self.parameters["mouse_mode"]
 
         if mouse_mode:
             self.player.set_mouse_mode()
-
 
 
         self.blobs[self.MY_ID] = self.player
@@ -961,7 +1074,15 @@ class game:
         # If we aren't multiplayer, we haven't yet configured our sectors or spawned dots
         if not self.sectors_configured:
             self.configure_sectors()
-            self.spawn_dots(200)
+
+            dots_to_spawn = len(self.sectors) * 2 * self.parameters["dot_spawn_rate"]
+            self.spawn_dots(dots_to_spawn)
+
+        # Allow continuous dot spawning
+        dot_spawn_thread = threading.Thread(target=self.continuous_dot_spawn)
+        dot_spawn_thread.daemon = True
+        dot_spawn_thread.start()
+
 
         # * Setup UI
         # Create UI manager
@@ -994,8 +1115,6 @@ class game:
         ui_thread.daemon = True
         ui_thread.start()
 
-
-
         self.running_flag.set()
         while self.running_flag.isSet():
 
@@ -1003,7 +1122,7 @@ class game:
 
 
             # remove previous instances of everything
-            game_display.fill((250, 250, 250))
+            self.game_display.fill((250, 250, 250))
             self.game_map.fill((0, 0, 0))
 
             for event in pygame.event.get():
@@ -1036,19 +1155,36 @@ class game:
             if pressed_keys[pygame.K_SPACE]:
                 self.player.split()
 
- 
+
+            # * Move things
             # Move player
             self.player.move()
             
             for bloblet in self.player.sub_blobs:
                 bloblet.move()
 
+            # Move AI if present
+            if not self.is_multiplayer:
+                for ai in self.ai_blob_ids.copy():
+                    self.blobs[ai].move()
+
 
             # * Eating time
 
             for blob_name in self.blobs:
                 self.check_eat_food(self.blobs[blob_name])
-            
+
+            # See if our player can eat any other blobs
+            self.check_eat_blob(self.player)
+
+            # Let AIs eat each other or the player
+            if not self.is_multiplayer:
+                for ai in self.ai_blob_ids.copy():
+                    try:
+                        self.check_eat_blob(self.blobs[ai])
+                    except KeyError:
+                        # Blob we are about to check was eaten earlier this tick
+                        continue
 
             # Player sub_blobs can eat each other and be eaten by player
             for sub_blob in self.player.sub_blobs.copy():
@@ -1096,8 +1232,8 @@ class game:
                 max_y = self.sectors_high
 
             # Start looking
-            for x in range(min_x, max_x):
-                for y in range(min_y, max_y):
+            for x in range(min_x, max_x + 1):
+                for y in range(min_y, max_y + 1):
 
                     # Draw every dot in each sector
                     for dot in self.sectors[(x,y)]:
@@ -1112,18 +1248,18 @@ class game:
 
 
             # Update screen
-            game_display.blit(self.game_map, self.player.camera_pos) # transfer game view to display
+            self.game_display.blit(self.game_map, self.player.camera_pos) # transfer game view to display
 
             # Display UI
 
             # Display here so it appears on top of the game
-            self.ui_manager.draw_ui(game_display)
+            self.ui_manager.draw_ui(self.game_display)
             self.ui_manager.update(time_delta)
-
 
             pygame.display.update()
 
         pygame.quit()
+        print("[GAME]:PyGame has quit, game ended")
 
 if __name__ == "__main__":
 
