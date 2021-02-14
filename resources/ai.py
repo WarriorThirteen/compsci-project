@@ -64,7 +64,7 @@ class ai_game(gm.game):
         while self.running_flag.isSet():
 
             # Not enough AI blobs AND only spawn new 5% of the time
-            if len(self.ai_blob_ids) < self.parameters["ai_limit"] and random.random() <= 0.05:
+            if len(self.ai_blob_ids) < self.parameters["ai_limit"] and random.random() <= 0.25:
                 self.create_ai(self.parameters["ai_difficulty"])
 
             sleep(self.ai_respawn_time)

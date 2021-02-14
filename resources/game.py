@@ -1,8 +1,10 @@
 import pygame
 import pygame_gui
+import pygame.font
 import math
 import random
 import threading
+
 
 from socket import gethostbyname, gethostname # To name myself
 from time import sleep
@@ -32,6 +34,8 @@ class cell:
 
         self.speed = 10 
         self.update_speed()
+
+        self.title_surface = self.game.font.render(self.name, True, self.game.parameters["font_colour"])
 
 
     def __str__(self):
@@ -66,10 +70,13 @@ class cell:
         Set ourselves a name
         '''
         self.name = name
+        self.title_surface = self.game.font.render(self.name, False, self.game.parameters["font_colour"])
 
 
     def display(self):
         pygame.draw.circle(self.game.game_map, self.colour, self.pos, self.radius, self.radius)
+        title_pos = (self.pos[0] - self.title_surface.get_rect().center[0], self.pos[1] - self.title_surface.get_rect().center[1])
+        self.game.game_map.blit(self.title_surface, title_pos)
 
     
     def place(self, new_pos):
@@ -538,10 +545,13 @@ class game:
             "mouse_mode"    : False,
             "player_colour" : "#4ef35a",
             "player_name"   : "Jad",
+            "font_size"     : 25,
+            "font"          : "Small Fonts",
+            "font_colour"   : (0, 0, 0),
 
             "random_seed"   : random.randint(0, 10000),
             "random_count"  : 0,
-            "ai_limit"      : 1,
+            "ai_limit"      : 5,
             "ai_difficulty" : 1,
 
             "sector_size"   : 200,
@@ -572,8 +582,10 @@ class game:
         self.ai_blob_ids = set()
         self.blobs = {}
 
-        print("[GAME]:Created game instance")
+        pygame.font.init()
+        self.font = pygame.font.SysFont(self.parameters["font"], self.parameters["font_size"])
 
+        print("[GAME]:Created game instance")
 
         self.running_flag = threading.Event()
         self.running_flag.clear()
