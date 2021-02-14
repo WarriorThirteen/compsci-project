@@ -39,7 +39,6 @@ connected_client_sockets = set()
 MAX_CONNECTIONS = 5
 
 
-
 ##  For Hosting
 
 
@@ -55,13 +54,6 @@ def gen_intro_packet():
     packet = SEPARATOR.join(game.info_for_new())
 
     return packet
-
-
-# Thread to run game
-
-# def game_box():
-#     game.run()  ## PYGAME IS NOT THREAD SAFE
-
 
 
 # Listen for new people
@@ -89,7 +81,6 @@ def listen_for_clients():
         new_thread = threading.Thread(target=client_connector, args=(address[0], new_socket,))
         new_thread.daemon = True
         new_thread.start()
-
 
 
     # close socket
@@ -128,7 +119,6 @@ def client_connector(client_address, client_socket):
     for client in connected_client_sockets:
         if client != client_socket:
             client.send(msg.encode())
-
 
 
     # Now we do a loop of receiving and resending:
@@ -199,7 +189,6 @@ def broadcast_from_server():
     print("[MULTIPLAYER]:Broadcast stopped")
 
 
-
 ##  For connecting to a Host
 
 
@@ -249,7 +238,6 @@ def listen_to_server(s):
                     process_game_info(msg.removesuffix(EOM_TOKEN))
 
 
-
 def broadcast_to_server(s):
     '''
     Every few milliseconds, send our data to the server.
@@ -266,9 +254,6 @@ def broadcast_to_server(s):
     s.send(disconnecting_message.encode())
 
 
-
-
-
 # UTILITY
 
 # Use info we receive about game actions
@@ -277,7 +262,6 @@ def process_game_info(message):
     Process received game data into gameplay
     '''
     game.process_player_move(message)
-
 
 
 ##  GENERIC FUNCTIONS FOR EXTERNAL USE
@@ -320,8 +304,6 @@ def join(server_address):
     s.close()
 
 
-
-
 def host():
     '''
     Host a server for others to join
@@ -332,8 +314,6 @@ def host():
 
     # Start Listening
 
-    # listening = threading.Event()
-    # listening.set()
 
     listener_thread = threading.Thread(target=listen_for_clients)
     listener_thread.daemon = True
@@ -351,8 +331,6 @@ def host():
 
     # Run our game
     game.run()
-
-
 
 
 if __name__ == "__main__":

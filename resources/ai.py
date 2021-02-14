@@ -30,7 +30,6 @@ class ai_game(gm.game):
         ai_respawn_thread.start()
 
 
-
     def create_ai(self, difficulty):
         '''
         Create an AI of the given difficulty level
@@ -69,7 +68,6 @@ class ai_game(gm.game):
                 self.create_ai(self.parameters["ai_difficulty"])
 
             sleep(self.ai_respawn_time)
-
 
 
 class ai_cell(gm.cell):
@@ -163,7 +161,6 @@ class ai_cell(gm.cell):
         self.angle_move(self.angle)
 
 
-
 class very_easy_ai(ai_cell):
     '''
     Easiest AI difficulty, moves randomly, changing direction 5% of the time
@@ -174,7 +171,6 @@ class very_easy_ai(ai_cell):
         This AI moves randomly
         '''
         self.angle = (random.random() * 2 * math.pi) - math.pi
-
 
 
 class easy_ai(ai_cell):
@@ -209,8 +205,6 @@ class easy_ai(ai_cell):
             rel_y = target_coords[1] - self.pos[1]
 
             self.angle = math.atan2(rel_y, rel_x)
-
-
 
 
 gen_name = lambda: "AI"

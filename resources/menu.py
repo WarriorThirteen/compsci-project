@@ -5,7 +5,6 @@ import tkfontchooser as tkFont
 import tkinter.colorchooser as tkcc
 
 
-
 ##  FUNCTIONS  ##
 
 def not_implemented():
@@ -31,7 +30,6 @@ def make_alert_func(root):
         tk.Label(alert_window, text=text).pack()
 
     return alert
-
 
 
 class menus:
@@ -140,7 +138,6 @@ class menus:
             title.place(relx=0.5, rely=0.125, anchor="n")
 
 
-
             ##  Singleplayer and multiplayer buttons
 
             self.btn_singleplayer = tk.Button(self.home_menu_frame, command=self.open_singleplayer_menu, text="Single Player", font=self.large_font)
@@ -177,17 +174,13 @@ class menus:
 
             ##  multiplayer menu screen
 
-
             # Background
             mp_bg_label = tk.Label(self.mp_menu_frame, image=self.bg_image, bg=self.WINDOW_BACKGROUND)
             mp_bg_label.place(relx=0, rely=0, relwidth=1, relheight=1)
 
 
-
-
             self.btn_back = tk.Button(self.mp_menu_frame, command=self.open_home_menu, image=self.back_icon, border=0, bg=self.WINDOW_BACKGROUND)  # , border=0)
             self.btn_back.place(relx=0.95, rely=0.1, anchor="ne")
-
 
 
             ##  Connect to game
@@ -222,7 +215,6 @@ class menus:
             connect_options.rowconfigure(2, weight=2)
 
 
-
             # Options for user to customise themselves or their blob before hosting/connecting
 
             join_options_count = 0
@@ -234,7 +226,6 @@ class menus:
             # Configure game
 
             tk.Label(join_options, text="Multiplayer exlusive options. To configure game, please open singleplayer menu", wrap=200, font=self.std_font).grid(row=0, columnspan=2, sticky="nsew")
-
 
             
             # dot spawn rate
@@ -268,7 +259,6 @@ class menus:
         '''
         self.home_menu_frame.pack_forget()
 
-
         if not self.opened_sp:
 
             ##  single player menu screen
@@ -276,7 +266,6 @@ class menus:
             # Background
             sp_bg_label = tk.Label(self.sp_menu_frame, image=self.bg_image, bg=self.WINDOW_BACKGROUND)
             sp_bg_label.place(relx=0, rely=0, relwidth=1, relheight=1)
-
 
 
             btn_back = tk.Button(self.sp_menu_frame, command=self.open_home_menu, image=self.back_icon, border=0, bg=self.WINDOW_BACKGROUND)  # , border=0)
@@ -332,7 +321,6 @@ class menus:
             simple_options_count += 1
 
 
-
             ##  Allow widgets to resize themselves
             sp_simple_options.columnconfigure(0, weight=1)
             sp_simple_options.columnconfigure(1, weight=1)
@@ -341,8 +329,6 @@ class menus:
 
             for i in range(1, simple_options_count + 1):
                 sp_simple_options.rowconfigure(i, weight=1)
-
-
 
 
             ## advanced options
@@ -357,7 +343,6 @@ class menus:
 
             # advanced option widgets go here
             # This will be populated as the actual game is made so it can be filled with relevant settings
-
 
             # dot spawn rate
             tk.Label(sp_advanced_options, text="Dot Spawn Rate:", font=self.std_font).grid(row=1, column=0, sticky="nsew")
@@ -416,16 +401,12 @@ class menus:
             for i in range(advanced_options_count + 1):
                 sp_advanced_options.rowconfigure(i, weight=1)
 
-
-
             self.opened_sp = True
 
         self.sp_menu_frame.pack(fill="both", expand=True)
 
 
-
     # Auxiliary Functions
-
 
     def get_port(self):
         '''
@@ -530,7 +511,6 @@ class menus:
 
         return True
 
-
     
     def get_difficulty(self):
         '''
@@ -561,7 +541,6 @@ class menus:
         return params
 
 
-
     def join_mp_game_holder(self):
         '''
         Retreive code and attempt to the relevant multiplayer game
@@ -590,8 +569,6 @@ class menus:
     @staticmethod
     def close_program():
         exit()
-
-
 
 
 if __name__ == "__main__":

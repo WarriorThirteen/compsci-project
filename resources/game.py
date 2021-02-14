@@ -106,13 +106,7 @@ class cell:
         '''
         Update our speed based on our mass
         '''
-        k = 0.5
-
-        # self.speed = k * 2000 / self.mass
-        # self.speed = k / math.sin(math.degrees(self.mass))
-        self.speed = -k * math.log(self.mass) + 10  # * <--- I like this one
-
-        #print(self.speed)
+        self.speed = -0.5 * math.log(self.mass) + 10  # * <--- I like this one
 
 
     def set_mass(self, mass):
@@ -332,7 +326,6 @@ class player_cell(cell):
         If player is absorbed it's game over
         Do not allow sub_blobs to absorb their parent
         '''
-
         if blob in self.sub_blobs:
             # Our child has attempted to eat us!
             return
@@ -463,10 +456,6 @@ class sub_cell(cell):
             self.pos = [self.pos[0] - self.d_x, self.pos[1] - self.d_y]
 
 
-        elif int(math.dist(self.pos, parent_pos)) < self.radius + self.parent.radius - self.parent.game.parameters["sub_blob_overlap"]:
-            # We have lived a short and fulfilling life, let parent reabsorb us
-            pass
-
         # Check our siblings for distance / reabsorbtion 
         for sibling in self.parent.sub_blobs:
             if not sibling is self:
@@ -481,12 +470,7 @@ class sub_cell(cell):
         Check distance between us and this other blob, if too close then move away.
         For use with siblings
         '''
-        if self.count >= self.parent.game.parameters["sub_blob_min_life"]:
-            # Life done, let sibling absorb us if they move over us
-            pass
-
-
-        elif int(math.dist(self.pos, blob.pos)) < self.radius + blob.radius - self.parent.game.parameters["sub_blob_overlap"]:
+        if int(math.dist(self.pos, blob.pos)) < self.radius + blob.radius - self.parent.game.parameters["sub_blob_overlap"]:
             # We are too close to a sibling
 
             # Find relative displacement
@@ -520,12 +504,10 @@ class sub_cell(cell):
 
             super().was_absorbed(blob)
 
-            #self.parent.sub_blobs.discard(self)
 
         else:
             # We can increase their score
             super().was_absorbed(blob)
-            #self.parent.sub_blobs.remove(self)
 
 
 class game:
@@ -615,7 +597,6 @@ class game:
         print("[GAME]:Game over triggered")
 
         sleep(1.5)
-
 
 
     def configure_game(self, config_pack):
@@ -721,7 +702,6 @@ class game:
         while self.running_flag.isSet():
             sleep(1/self.parameters["dot_spawn_rate"])
             self.spawn_dots(1)
-
 
 
     def place_dot(self, dot):
@@ -904,7 +884,6 @@ class game:
         self.blobs[blob].place(pos)
 
 
-
         # * Deal with player's bloblets
         for bloblet_data in foreign_blobs[1:]:
             info = bloblet_data.split(",")
@@ -1014,7 +993,6 @@ class game:
                     manager=self.ui_manager)
 
 
-
             # Sleep to give time for things to change
             sleep(0.5)
 
@@ -1038,7 +1016,6 @@ class game:
         # Add one to make sure dots are rendered at the edge of the screen
         screen_sector_width = (WORLD_WIDTH // self.parameters["sector_size"] + 1) // 2
         screen_sector_height = (WORLD_HEIGHT // self.parameters["sector_size"] + 1) // 2
-
 
 
         # Configure display and pygame settings

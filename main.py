@@ -53,8 +53,6 @@ difficulty_options = (
 max_dot_spawn_rate = 20 # temp until game has been tested with different values
 
 
-
-
 ##  Main program
 main_menu = menu.menus(run_game, run_multiplayer, join_multiplayer, gen_name, difficulty_options)
 
