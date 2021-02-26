@@ -125,7 +125,12 @@ def client_connector(client_address, client_socket):
     # Now we do a loop of receiving and resending:
     while game.running_flag.isSet() and connected:
         # Listen for message
-        msg_list = client_socket.recv(BUFFER_SIZE).decode().split(EOM_TOKEN)
+        try:
+            msg_list = client_socket.recv(BUFFER_SIZE).decode().split(EOM_TOKEN)
+
+        except ConnectionResetError: 
+            connected = False
+            continue
 
 
         for msg in msg_list:
@@ -182,7 +187,7 @@ def broadcast_from_server():
                 client.send(msg.encode())
 
         except RuntimeError or ConnectionResetError: # Client was removed from list while we were iterating through
-            pass
+            continue
 
         time.sleep(1 / game.UPS)
 

@@ -1000,7 +1000,7 @@ class game:
                 self.ui_other_info.kill()
                 self.ui_other_info = pygame_gui.elements.UITextBox(
                     relative_rect=pygame.Rect((int(self.DISPLAY_GEOMETRY[0] * 0.6), int(self.DISPLAY_GEOMETRY[1] * 0.8)), (int(self.DISPLAY_GEOMETRY[0] * 0.2), int(self.DISPLAY_GEOMETRY[1] * 0.15))),
-                    html_text=f"Multiplayer Data:<br>Code to connect - {self.host_name}<br>Player count - {len(self.blobs)}<br>Port number - {self.port}<br>You are the host - {self.host_name == self.MY_ID}",
+                    html_text=f"Multiplayer Data:<br>Code - {self.host_name}<br>Player count - {len(self.blobs)}<br>Port number - {self.port}<br>You are the host - {self.host_name == self.MY_ID}",
                     manager=self.ui_manager)
 
             else:

@@ -611,8 +611,8 @@ class menus:
             except socket_timeout:
                 self.alert("Connection timed out - the provided code likely does not point to a host")
 
-            except:
-                self.alert("An unknown error occured: Try rehosting the game")
+            # except:
+            #     self.alert("An unknown error occured: Try rehosting the game")
 
 
     def toggle_sound(self):

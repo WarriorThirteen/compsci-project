@@ -18,7 +18,7 @@ def run_multiplayer():
 	Called from within menu to close the tkinter menu and run pygame in multiplayer mode, and host a game
 	'''
 	multiplayer.game = game.game(main_menu.get_parameters())
-	multiplayer.PORT = main_menu.get_port()
+	multiplayer.PORT, multiplayer.game.port = main_menu.get_port(), main_menu.get_port()
 	multiplayer.host()
 
 
