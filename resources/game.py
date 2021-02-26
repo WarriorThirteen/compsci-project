@@ -17,7 +17,7 @@ class cell:
     def __init__(self, game, pos=(0, 0), colour=(255, 0, 0), starting_mass=500):
 
         self.pos    = list(pos)
-        self.colour = colour
+        self.colour = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
         self.mass   = starting_mass
         self.score  = starting_mass
         self.name   = "Unnamed"
@@ -62,7 +62,7 @@ class cell:
         self.colour = new_data["colour"]
         self.set_mass(new_data["mass"])
         self.score = new_data["score"]
-        self.name = new_data["name"]
+        self.set_name(new_data["name"])
 
 
     def set_name(self, name):
@@ -318,6 +318,7 @@ class player_cell(cell):
 
             # Record new sub_blob in blob list
             self.game.blobs[child_name] = new_child
+            new_child.set_name(self.name)
             self.sub_blobs.add(new_child)
             self.sub_blobs_made += 1
 
@@ -385,7 +386,7 @@ class sub_cell(cell):
         
 
     def move(self):
-        print("it's broken")
+        print("[ALERT-GAME]:Sub-Blobs movement improperly assigned")
 
 
     # Move 1
@@ -449,30 +450,31 @@ class sub_cell(cell):
         angle = math.atan2(rel_y, rel_x)
 
         # Find ratio of x to y movement that we need
-        self.d_x = self.speed * math.cos(angle)
-        self.d_y = self.speed * math.sin(angle)
+        d_x = self.speed * math.cos(angle)
+        d_y = self.speed * math.sin(angle)
 
 
         if int(math.dist(self.pos, parent_pos)) > self.radius + self.parent.radius:
             # We are too far, move closer
-            self.pos = [self.pos[0] + self.d_x, self.pos[1] + self.d_y]
+            self.pos = [self.pos[0] + d_x, self.pos[1] + d_y]
 
 
-        elif self.count < self.parent.game.parameters["sub_blob_min_life"] and int(math.dist(self.pos, parent_pos)) < self.radius + self.parent.radius - self.parent.game.parameters["sub_blob_overlap"]:
+        elif (self.count < self.parent.game.parameters["sub_blob_min_life"] and
+        int(math.dist(self.pos, parent_pos)) < self.radius + self.parent.radius - self.parent.game.parameters["sub_blob_overlap"]):
             # We are too young to be reabsorbed, move away
-            self.pos = [self.pos[0] - self.d_x, self.pos[1] - self.d_y]
+            self.pos = [self.pos[0] - d_x, self.pos[1] - d_y]
 
 
         # Check our siblings for distance / reabsorbtion 
         for sibling in self.parent.sub_blobs:
             if not sibling is self:
-                self.check_sibling(sibling)
+                self.prevent_overlap(sibling)
 
         self.wall_detect()
         self.count += 1
 
 
-    def check_sibling(self, blob):
+    def prevent_overlap(self, blob):
         '''
         Check distance between us and this other blob, if too close then move away.
         For use with siblings
@@ -487,10 +489,10 @@ class sub_cell(cell):
             angle = math.atan2(rel_y, rel_x)
 
             # Find ratio of x to y movement that we need
-            self.d_x = self.speed * math.cos(angle)
-            self.d_y = self.speed * math.sin(angle)
+            d_x = self.speed * math.cos(angle)
+            d_y = self.speed * math.sin(angle)
 
-            self.pos = [self.pos[0] - self.d_x, self.pos[1] - self.d_y]
+            self.pos = [self.pos[0] - d_x, self.pos[1] - d_y]
 
 
     def was_absorbed(self, blob):
@@ -505,7 +507,6 @@ class sub_cell(cell):
             pass
 
         elif blob is self.parent or blob in self.parent.sub_blobs:
-
             # Lower parents score before it is increased when they eat us
             self.parent.set_score(self.parent.score - self.mass)
 
@@ -535,6 +536,7 @@ class game:
         self.is_multiplayer = False
         self.separator = "<GAME_SEP>"
         self.null_mass = -1
+        self.port = "You shouldn't see this"        # Set port for multiplayer info display
 
         self.MY_ID = str(gethostbyname(gethostname()))
 
@@ -921,6 +923,7 @@ class game:
                 mass = int(mass)
                 new_child = sub_cell(self.blobs[blob], mass)
                 new_child.id = name
+                new_child.set_name(blob)
                 self.blobs[name] = new_child
 
                 # Assign to parent
@@ -992,7 +995,7 @@ class game:
                 self.ui_other_info.kill()
                 self.ui_other_info = pygame_gui.elements.UITextBox(
                     relative_rect=pygame.Rect((int(self.DISPLAY_GEOMETRY[0] * 0.6), int(self.DISPLAY_GEOMETRY[1] * 0.8)), (int(self.DISPLAY_GEOMETRY[0] * 0.2), int(self.DISPLAY_GEOMETRY[1] * 0.15))),
-                    html_text=f"Multiplayer Data:<br>Code to connect - {self.host_name}<br>Player count - {len(self.blobs)}<br>You are the host - {self.host_name == self.MY_ID}",
+                    html_text=f"Multiplayer Data:<br>Code to connect - {self.host_name}<br>Player count - {len(self.blobs)}<br>Port number - {self.port}<br>You are the host - {self.host_name == self.MY_ID}",
                     manager=self.ui_manager)
 
             else:

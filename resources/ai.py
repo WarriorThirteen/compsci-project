@@ -24,6 +24,9 @@ class ai_game(gm.game):
         for _ in range(self.parameters["ai_limit"]):
             self.create_ai(self.parameters["ai_difficulty"])
 
+        # Probability an AI will spawn on any given tick
+        self.respawn_probability = 0.3
+
         # Start continuous respawn
         ai_respawn_thread = threading.Thread(target=self.respawn_ai)
         ai_respawn_thread.daemon = True
@@ -59,12 +62,12 @@ class ai_game(gm.game):
         '''
         print("[AI]:Continuous AI respawn enabled")
         self.running_flag.wait()
-        print("[AI]:AIs now respawning")
+        print("[AI]:AIs now respawning with probability {self.respawn_probability}")
 
         while self.running_flag.isSet():
 
             # Not enough AI blobs AND only spawn new 5% of the time
-            if len(self.ai_blob_ids) < self.parameters["ai_limit"] and random.random() <= 0.25:
+            if len(self.ai_blob_ids) < self.parameters["ai_limit"] and random.random() <= self.respawn_probability:
                 self.create_ai(self.parameters["ai_difficulty"])
 
             sleep(self.ai_respawn_time)
@@ -95,11 +98,11 @@ class ai_cell(gm.cell):
         Move ourselves in a direction denoted by the provided angle
         '''
         # Find ratio of x to y movement that we need
-        self.d_x = self.speed * math.cos(angle)
-        self.d_y = self.speed * math.sin(angle)
+        d_x = self.speed * math.cos(angle)
+        d_y = self.speed * math.sin(angle)
 
         # Move
-        self.pos = [self.pos[0] + self.d_x, self.pos[1] + self.d_y]
+        self.pos = [self.pos[0] + d_x, self.pos[1] + d_y]
 
         # Don't go through the walls
         self.wall_detect()

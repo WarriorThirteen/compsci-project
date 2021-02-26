@@ -4,6 +4,8 @@ import tkinter as tk
 import tkfontchooser as tkFont
 import tkinter.colorchooser as tkcc
 
+from socket import timeout as socket_timeout
+
 
 ##  FUNCTIONS  ##
 
@@ -38,8 +40,7 @@ class menus:
         multiplayer_run_function=not_implemented,
         multiplayer_join_function=not_implemented,
         name_gen_function=lambda : "Jad",
-        difficulty_options_list=("Very Easy", "Easy", "Medium", "Hard", "Very Hard", "Custom"),
-        dot_spawn_rate=3, ai_limit=20):
+        difficulty_options_list=("Very Easy", "Easy", "Medium", "Hard", "Very Hard", "Custom")):
 
 
         self.WINDOW_WIDTH = 1280     # These can be changed, but convenient for 720p to be used for
@@ -59,10 +60,14 @@ class menus:
         self.difficulty_options = difficulty_options_list
         self.gen_name = name_gen_function
 
-        self.max_spawn_rate = dot_spawn_rate # max spawn rate of dots
-        self.max_ai_count = ai_limit
+        self.max_spawn_rate = 10 # max spawn rate of dots
+        self.max_ai_count = 20
         self.max_world_size = 10000
         self.max_dot_value = 50
+        self.max_port = 60000
+        self.min_port = 5000
+
+        self.MAX_NAME_LENGTH = 15
 
         # Tracking for buttons and menus
         self.sound_on = False
@@ -158,7 +163,8 @@ class menus:
             self.opened_home = True
             # Start the music
             self.toggle_sound()
-
+            
+            print("[MENU]:Home Menu initialised successfully")
 
         self.home_menu_frame.pack(fill="both", expand=True)
 
@@ -228,12 +234,17 @@ class menus:
             tk.Label(join_options, text="Multiplayer exlusive options. To configure game, please open singleplayer menu", wrap=200, font=self.std_font).grid(row=0, columnspan=2, sticky="nsew")
 
             
-            # dot spawn rate
+            # Port selector
             tk.Label(join_options, text="Port:", font=self.std_font).grid(row=1, column=0, sticky="nsew")
 
-            self.port_selector = tk.Scale(join_options, from_=1000, to=60000, orient="horizontal", font=self.std_font)
-            self.port_selector.grid(row=1, column=1, sticky="nsew")
-            self.port_selector.set(5001)
+            # self.port_selector = tk.Scale(join_options, from_=1000, to=60000, orient="horizontal", font=self.std_font)
+            # self.port_selector.grid(row=1, column=1, sticky="nsew")
+            # self.port_selector.set(5001)
+
+            self.port = tk.StringVar()
+            self.port_input = tk.Entry(join_options, textvariable=self.port)
+            self.port_input.grid(row=1, column=1, sticky="nsew")
+            self.port.set("5001")
 
             join_options_count += 1
 
@@ -249,6 +260,7 @@ class menus:
 
 
             self.opened_mp = True
+            print("[MENU]:Multiplayer Menu initialised successfully")
 
         self.mp_menu_frame.pack(fill="both", expand=True)
 
@@ -384,7 +396,7 @@ class menus:
             advanced_options_count += 1
 
             # Minimum split mass
-            tk.Label(sp_advanced_options, text="Minimum mass to split:", font=self.std_font).grid(row=5, column=0, sticky="nsew")
+            tk.Label(sp_advanced_options, text="Minimum split mass:", font=self.std_font).grid(row=5, column=0, sticky="nsew")
 
             self.split_mass_slider = tk.Scale(sp_advanced_options, from_=100, to=2000, orient="horizontal", font=self.std_font)
             self.split_mass_slider.grid(row=5, column=1, sticky="nsew")
@@ -402,18 +414,12 @@ class menus:
                 sp_advanced_options.rowconfigure(i, weight=1)
 
             self.opened_sp = True
+            print("[MENU]:Single Player Menu initialised successfully")
 
         self.sp_menu_frame.pack(fill="both", expand=True)
 
 
     # Auxiliary Functions
-
-    def get_port(self):
-        '''
-        Returns desired port
-        '''
-        return self.port_selector.get()
-
 
     def change_colour(self):
         '''
@@ -426,9 +432,16 @@ class menus:
 
     def get_name(self):
         '''
-        Get player's name
+        Get player's name.
+        Return default name if provided name is too long
         '''
-        return self.name_input.get()
+        if len(name := self.name_input.get()) <= self.MAX_NAME_LENGTH:
+            pass
+        else:
+            self.alert("Invalid name chosen, random name selected!")
+            print(f"[MENU]:Alternative name chosen: {name := self.gen_name()}")
+
+        return name
 
 
     def get_dot_spawn_rate(self):
@@ -481,6 +494,9 @@ class menus:
         code = self.join_code.get()
         if self.check_code(code):
             return code
+        else:
+            # self.alert("Invalid join code input, connection attempt failed")
+            print("[MENU]:Invalid join code used")
 
 
     def check_code(self, code):
@@ -499,19 +515,57 @@ class menus:
         # All values should be integers between 0 and 255
         try:
             for i, value in enumerate(code):
-                code[i] = int(value)
+                value, code[i] = int(value), int(value)
 
                 if value < 0 or value > 255:
-                    self.alert("IP numbers not real")
-                    return False
+                    raise KeyError
         
-        except:
-            self.alert("Incorrect format for IP")
-            return False
+        except ValueError:
+            self.alert("Letters identified within provided IP address")
 
-        return True
+        except KeyError:
+            self.alert("Numbers in IP address provided outside range of 0-255.")
 
-    
+        else:
+            return True
+
+        return False
+
+
+    def get_port(self):
+        '''
+        Returns desired port if it is valid
+        '''
+        port =  self.port.get()
+        if self.check_port(port):
+            return int(port)
+        else:
+            # self.alert("Invalid Port Chosen, connection attempt failed")
+            print("[MENU]:Invalid Port Chosen")
+        
+
+    def check_port(self, port):
+        '''
+        Check if a given port is valid, returning True.
+        Otherwise return False
+        '''
+        # Check it is a number in appropriate range
+        try:
+            port = int(port)
+            assert port in range(self.min_port, self.max_port)
+
+        except ValueError:
+            self.alert("Port chosen is not a number!")
+
+        except AssertionError:
+            self.alert(f"Port is not in the range {self.min_port} - {self.max_port}!")
+
+        else:
+            return True
+
+        return False
+
+
     def get_difficulty(self):
         '''
         Return a numeric difficulty based on the value selected by the player
@@ -547,9 +601,18 @@ class menus:
         '''
         code = self.get_join_code()
         if code == None:
-            self.alert("Attempt to join failed")
+            # This is handled within the get command
+            pass
         else:
-            self.join_mp_game(code)
+            try:
+                # May cause application not responding if user presses buttons
+                self.join_mp_game(code)
+
+            except socket_timeout:
+                self.alert("Connection timed out - the provided code likely does not point to a host")
+
+            except:
+                self.alert("An unknown error occured: Try rehosting the game")
 
 
     def toggle_sound(self):

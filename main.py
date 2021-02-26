@@ -27,7 +27,7 @@ def join_multiplayer(code):
     Called from within menu to close the tkinter menu and run pygame in multiplayer mode, and connect to a networked game
     '''
 	multiplayer.game = game.game()
-	multiplayer.PORT = main_menu.get_port()
+	multiplayer.PORT, multiplayer.game.port = main_menu.get_port(), main_menu.get_port()
 	multiplayer.join(code)
 
 
@@ -50,7 +50,6 @@ difficulty_options = (
 	# "Very Hard",
 	# "Custom"
 )
-max_dot_spawn_rate = 20 # temp until game has been tested with different values
 
 
 ##  Main program

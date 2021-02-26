@@ -37,6 +37,7 @@ connected_client_sockets = set()
 
 # Control / Configuration variables
 MAX_CONNECTIONS = 5
+TIMEOUT_DELAY   = 5
 
 
 ##  For Hosting
@@ -198,15 +199,20 @@ def connect_to_server(server_address):
     Receive info packet from server and configure game appropriately.
     '''
 
-    # connect to server
+    # Connect to server
     s = socket.socket()
+    s.settimeout(TIMEOUT_DELAY)
     s.connect((server_address, PORT))
 
     # Receive data until end of welcome packet:
     intro_packet = s.recv(BUFFER_SIZE).decode().split(SEPARATOR)
 
-    # Configure game with welcome packet
-    game.configure_game(intro_packet)
+    try:
+        # Configure game with welcome packet
+        game.configure_game(intro_packet)
+
+    except:
+        print("[MULTIPLAYER]:Error configuring game - likely that buffer size to small for data receicved")
 
     return s
 
