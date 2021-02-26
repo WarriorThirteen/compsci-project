@@ -14,10 +14,15 @@ from time import sleep
 
 
 class cell:
-    def __init__(self, game, pos=(0, 0), colour=(255, 0, 0), starting_mass=500):
+    def __init__(self, game, pos=(0, 0), colour=None, starting_mass=500):
 
         self.pos    = list(pos)
-        self.colour = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+
+        if colour == None:
+            self.colour = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+        else:
+            self.colour = colour
+
         self.mass   = starting_mass
         self.score  = starting_mass
         self.name   = "Unnamed"
@@ -1060,8 +1065,7 @@ class game:
 
         self.blobs[self.MY_ID] = self.player
         print(f"[GAME]:Player {self.MY_ID} Created")
-        print(f"[GAME]:BLOBS LIST:{self.blobs}")
-
+        # print(f"[GAME]:BLOBS LIST:{self.blobs}")
 
         # If we aren't multiplayer, we haven't yet configured our sectors or spawned dots
         if not self.sectors_configured:

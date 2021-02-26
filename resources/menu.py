@@ -93,7 +93,7 @@ class menus:
         self.std_font = tkFont.Font(root=self.root, family=self.FONT_FAMILY, size=12)
         self.large_font = tkFont.Font(root=self.root, family=self.FONT_FAMILY, size=20)
 
-        self.player_colour = "red"
+        self.player_colour = "#FF0000"
 
 
         self.alert = make_alert_func(self.root)
