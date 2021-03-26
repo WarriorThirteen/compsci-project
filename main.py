@@ -59,5 +59,7 @@ main_menu.open_multiplayer_menu()
 main_menu.open_singleplayer_menu()
 main_menu.open_home_menu()
 
+# Prevent my ears from being burned out
+main_menu.toggle_sound()
 
 main_menu.root.mainloop()

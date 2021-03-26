@@ -283,7 +283,7 @@ def join(server_address):
     '''
 
     # Tell the game that we have are not the host
-    game.set_multiplayer(server_address.split(".")[-1])
+    game.set_multiplayer(server_address)
 
     print("[MULTIPLAYER]:JOINING")
 
@@ -321,7 +321,7 @@ def host():
     '''
 
     print("[MULTIPLAYER]:HOSTING")
-    game.set_multiplayer()
+    game.set_multiplayer(game.MY_ID)
 
     # Start Listening
 

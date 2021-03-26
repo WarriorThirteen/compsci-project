@@ -892,7 +892,12 @@ class game:
         foreign_blobs = data.split(self.separator)
 
         # Transform main player data
-        blob, mass, score, pos_x, pos_y = foreign_blobs[0].split(",")
+        try:
+            blob, mass, score, pos_x, pos_y = foreign_blobs[0].split(",")
+
+        except ValueError: # Some sort of transmission error occured, just move on
+            return
+
         pos = (int(float(pos_x)), int(float(pos_y)))
         mass = int(mass)
         score = int(score)
@@ -952,7 +957,7 @@ class game:
             player_text = f"Player stats:<br>Current Score - {self.player.score}<br>Peak Score - {self.player.peak_score}<br>Bloblet count - {len(self.player.sub_blobs)}<br>"
             self.ui_player_stats.kill()
             self.ui_player_stats = pygame_gui.elements.UITextBox(
-                relative_rect=pygame.Rect((int(self.DISPLAY_GEOMETRY[0] * 0.2), int(self.DISPLAY_GEOMETRY[1] * 0.8)), (int(self.DISPLAY_GEOMETRY[0] * 0.2), int(self.DISPLAY_GEOMETRY[1] * 0.15))),
+                relative_rect=self.player_stats_rect,
                 html_text=player_text,
                 manager=self.ui_manager)
 
@@ -964,7 +969,7 @@ class game:
 
             self.ui_game_stats.kill()
             self.ui_game_stats = pygame_gui.elements.UITextBox(
-                relative_rect=pygame.Rect((int(self.DISPLAY_GEOMETRY[0] * 0.4), int(self.DISPLAY_GEOMETRY[1] * 0.8)), (int(self.DISPLAY_GEOMETRY[0] * 0.2), int(self.DISPLAY_GEOMETRY[1] * 0.15))),
+                relative_rect=self.game_stats_rect,
                 html_text=f"Total Mass of Blobs - {total_game_mass}<br>Mass of Live Dots - {total_dot_mass}",
                 manager=self.ui_manager)
 
@@ -988,7 +993,7 @@ class game:
             leaderboard_text = "<br>".join(blobs_with_scores[:9])
             self.ui_leaderboard.kill()
             self.ui_leaderboard = pygame_gui.elements.UITextBox(
-                relative_rect=pygame.Rect((int(self.DISPLAY_GEOMETRY[0] * 0.8), int(self.DISPLAY_GEOMETRY[1] * 0.05)), (int(self.DISPLAY_GEOMETRY[0] * 0.15), int(self.DISPLAY_GEOMETRY[1] * 0.3))),
+                relative_rect=self.leaderboard_rect,
                 html_text=f"Leaderboard:<br>{leaderboard_text}",
                 manager=self.ui_manager)
 
@@ -996,19 +1001,22 @@ class game:
             # * Display misc data
             if self.is_multiplayer:
                 # Display our multiplayer info
+                blob_count = len(self.blobs)     # [blob for blob in self.blobs if not blob.is_bloblet])
                 
                 self.ui_other_info.kill()
                 self.ui_other_info = pygame_gui.elements.UITextBox(
-                    relative_rect=pygame.Rect((int(self.DISPLAY_GEOMETRY[0] * 0.6), int(self.DISPLAY_GEOMETRY[1] * 0.8)), (int(self.DISPLAY_GEOMETRY[0] * 0.2), int(self.DISPLAY_GEOMETRY[1] * 0.15))),
-                    html_text=f"Multiplayer Data:<br>Code - {self.host_name}<br>Player count - {len(self.blobs)}<br>Port number - {self.port}<br>You are the host - {self.host_name == self.MY_ID}",
+                    relative_rect=self.other_info_rect,
+                    html_text=f"Multiplayer Data:<br>Code - {self.host_name}<br>Blob count - {blob_count}<br>Port number - {self.port}",
                     manager=self.ui_manager)
+
+                    # <br>You are the host - {self.host_name == self.MY_ID}
 
             else:
                 # Display our AI info
                 
                 self.ui_other_info.kill()
                 self.ui_other_info = pygame_gui.elements.UITextBox(
-                    relative_rect=pygame.Rect((int(self.DISPLAY_GEOMETRY[0] * 0.6), int(self.DISPLAY_GEOMETRY[1] * 0.8)), (int(self.DISPLAY_GEOMETRY[0] * 0.2), int(self.DISPLAY_GEOMETRY[1] * 0.15))),
+                    relative_rect=self.other_info_rect,
                     html_text=f"AI info:<br>Number of AI - {len(self.ai_blob_ids)}<br>Difficulty - {self.parameters['ai_difficulty']}",
                     manager=self.ui_manager)
 
@@ -1084,24 +1092,40 @@ class game:
         # Create UI manager
         self.ui_manager = pygame_gui.UIManager(self.DISPLAY_GEOMETRY)
 
-        # create UI pieces
+        # Create UI pieces
+        # The containing rectangles are seperated out else the function becomes too unwieldy
+        self.player_stats_rect = pygame.Rect((int(self.DISPLAY_GEOMETRY[0] * 0.2), int(self.DISPLAY_GEOMETRY[1] * 0.8)),
+                                            (int(self.DISPLAY_GEOMETRY[0] * 0.2), int(self.DISPLAY_GEOMETRY[1] * 0.15)))
+
         self.ui_player_stats = pygame_gui.elements.UITextBox(
-            relative_rect=pygame.Rect((int(self.DISPLAY_GEOMETRY[0] * 0.2), int(self.DISPLAY_GEOMETRY[1] * 0.8)), (int(self.DISPLAY_GEOMETRY[0] * 0.2), int(self.DISPLAY_GEOMETRY[1] * 0.15))),
+            relative_rect=self.player_stats_rect,
             html_text="Loading Player Stats...",
             manager=self.ui_manager)
 
+
+        self.game_stats_rect = pygame.Rect((int(self.DISPLAY_GEOMETRY[0] * 0.4), int(self.DISPLAY_GEOMETRY[1] * 0.8)),
+                                            (int(self.DISPLAY_GEOMETRY[0] * 0.2), int(self.DISPLAY_GEOMETRY[1] * 0.15)))
+
         self.ui_game_stats = pygame_gui.elements.UITextBox(
-            relative_rect=pygame.Rect((int(self.DISPLAY_GEOMETRY[0] * 0.4), int(self.DISPLAY_GEOMETRY[1] * 0.8)), (int(self.DISPLAY_GEOMETRY[0] * 0.2), int(self.DISPLAY_GEOMETRY[1] * 0.15))),
+            relative_rect=self.game_stats_rect,
             html_text='Loading Game Stats...',
             manager=self.ui_manager)
 
+
+        self.other_info_rect = pygame.Rect((int(self.DISPLAY_GEOMETRY[0] * 0.6), int(self.DISPLAY_GEOMETRY[1] * 0.8)),
+                                            (int(self.DISPLAY_GEOMETRY[0] * 0.2), int(self.DISPLAY_GEOMETRY[1] * 0.15)))
+
         self.ui_other_info = pygame_gui.elements.UITextBox(
-            relative_rect=pygame.Rect((int(self.DISPLAY_GEOMETRY[0] * 0.6), int(self.DISPLAY_GEOMETRY[1] * 0.8)), (int(self.DISPLAY_GEOMETRY[0] * 0.2), int(self.DISPLAY_GEOMETRY[1] * 0.15))),
+            relative_rect=self.other_info_rect,
             html_text='Network_info',
             manager=self.ui_manager)
 
+
+        self.leaderboard_rect = pygame.Rect((int(self.DISPLAY_GEOMETRY[0] * 0.8), int(self.DISPLAY_GEOMETRY[1] * 0.05)),
+                                            (int(self.DISPLAY_GEOMETRY[0] * 0.15), int(self.DISPLAY_GEOMETRY[1] * 0.3)))
+
         self.ui_leaderboard = pygame_gui.elements.UITextBox(
-            relative_rect=pygame.Rect((int(self.DISPLAY_GEOMETRY[0] * 0.8), int(self.DISPLAY_GEOMETRY[1] * 0.05)), (int(self.DISPLAY_GEOMETRY[0] * 0.15), int(self.DISPLAY_GEOMETRY[1] * 0.3))),
+            relative_rect=self.leaderboard_rect,
             html_text='Leaderboard',
             manager=self.ui_manager)
 
@@ -1247,7 +1271,6 @@ class game:
             self.game_display.blit(self.game_map, self.player.camera_pos) # transfer game view to display
 
             # Display UI
-
             # Display here so it appears on top of the game
             self.ui_manager.draw_ui(self.game_display)
             self.ui_manager.update(time_delta)
