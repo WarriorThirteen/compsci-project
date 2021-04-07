@@ -999,6 +999,7 @@ class game:
 
 
             # * Display misc data
+            # I'm sorry I thought you were responsible for that crash.
             if self.is_multiplayer:
                 # Display our multiplayer info
                 blob_count = len(self.blobs)     # [blob for blob in self.blobs if not blob.is_bloblet])
