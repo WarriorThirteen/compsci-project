@@ -51,7 +51,6 @@ difficulty_options = (
 	# "Custom"
 )
 
-
 ##  Main program
 main_menu = menu.menus(run_game, run_multiplayer, join_multiplayer, gen_name, difficulty_options)
 

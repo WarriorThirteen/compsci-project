@@ -99,9 +99,11 @@ def client_connector(client_address, client_socket):
     and will be continuosly sent data from other clients for their game.
     '''
     
+    print(f"[MULTIPLAYER]:Attempting to connect new client ip: {client_address}")
+
     # Step one send new client game data:
     # This will only return after the game has begun
-    client_socket.send(gen_intro_packet().encode())
+    client_socket.send((gen_intro_packet() + EOM_TOKEN).encode())
 
     # Client is currently connected
     connected = True
@@ -210,14 +212,18 @@ def connect_to_server(server_address):
     s.connect((server_address, PORT))
 
     # Receive data until end of welcome packet:
-    intro_packet = s.recv(BUFFER_SIZE).decode().split(SEPARATOR)
+    intro_packet = s.recv(BUFFER_SIZE).decode()
+    # Split off conjoined messages and break packet into component pieces.
+    intro_packet = intro_packet.split(EOM_TOKEN)[0].split(SEPARATOR)
+    # As we will continuously receive updates from the server, no need to process any accidentally attached packets.
 
-    try:
-        # Configure game with welcome packet
-        game.configure_game(intro_packet)
 
-    except:
-        print("[MULTIPLAYER]:Error configuring game - likely that buffer size to small for data receicved")
+    # try:
+    #     # Configure game with welcome packet
+    game.configure_game(intro_packet)
+
+    # except:
+    #     print("[MULTIPLAYER]:Error configuring game - likely that buffer size to small for data receicved")
 
     return s
 

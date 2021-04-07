@@ -741,6 +741,7 @@ class game:
         '''
         self.blobs[controller] = cell(self)
         self.blobs[controller].id = controller
+        self.blobs[controller].set_name(controller)
         print(f"[GAME]:Created Blob ID:{controller}")
 
     
@@ -869,7 +870,7 @@ class game:
         Generate data to send to the server when we update something
         Data is new mass and score of player blob, and location
         '''
-        out = f"{self.MY_ID},{self.player.mass},{self.player.score},"    # our id, our mass, our score
+        out = f"{self.MY_ID},{self.player.name},{self.player.mass},{self.player.score},"    # our id, our mass, our score
         out += f"{self.player.pos[0]},{self.player.pos[1]}" # our x, our y
 
         for bloblet in self.player.sub_blobs.copy():
@@ -893,7 +894,7 @@ class game:
 
         # Transform main player data
         try:
-            blob, mass, score, pos_x, pos_y = foreign_blobs[0].split(",")
+            blob, blob_name, mass, score, pos_x, pos_y = foreign_blobs[0].split(",")
 
         except ValueError: # Some sort of transmission error occured, just move on
             return
@@ -904,6 +905,7 @@ class game:
 
         # Use data to calibrate blob
         self.blobs[blob].set_mass(mass)
+        self.blobs[blob].set_name(blob_name)
         self.blobs[blob].set_score(score)
         self.blobs[blob].place(pos)
 
