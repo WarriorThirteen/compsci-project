@@ -2,9 +2,11 @@ Thank you for choosing to test my coursework.
 
 Windows 10 is required to run this program
 
-In order to play, please run "Jario.exe".
-Your OS and Antiviruses may attempt to prevent it from running,
-however I promise this program is not a virus so feel free to run the program regardless.
+~~In order to play, please run "Jario.exe".~~
+~~Your OS and Antiviruses may attempt to prevent it from running,~~
+~~however I promise this program is not a virus so feel free to run the program regardless.~~
+A compiled version is no longer maintained.
+
 
 Proceed through the menu as you wish, and click "play" or "host" when you are ready.
 Move with WASD or the mouse if you enabled it.
